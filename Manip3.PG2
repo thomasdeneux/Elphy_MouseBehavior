@@ -1,6 +1,6 @@
 
 const
-  version = 'BB3 TD13'; // INCREMENT AFTER YOUR INITIAL AFTER EVERY MODIFICATION     test ZP
+  version = 'BB3 TD16'; // INCREMENT AFTER YOUR INITIAL AFTER EVERY MODIFICATION
   Sound_Sampling_Frequency= 192000;    // Hz
   Lick_Sampling_Frequency = 1000;      // Hz 
   Sound_Directory = 'D:\Behavioral Experiments\Stimuli\Sounds\';
@@ -100,7 +100,7 @@ begin
   begin
     localparam.LoadObject(LocalParameterFile);
     Dev := localparam.dev;
-    rewardConversion := localparam.rewardConversion;
+    if localparam.fieldExists('rewardConversion') then rewardConversion := localparam.rewardConversion;
   end
   else
   begin
@@ -120,7 +120,7 @@ begin
   if ParameterChanged then
     localparam.ParameterFile:=DefaultParameterFile
   else
-    localparam.ParameterFile:=ParameterFile;
+    localparam.ParameterFile:=ParameterFile; 
   localparam.rewardConversion:=rewardConversion;
   localparam.SaveAsObject(LocalParameterFile);
 end;
@@ -332,8 +332,8 @@ begin
   InitLocalParameters;
   
   // experiment parameters
-  if localparam.fieldExists('ParameterFile') then
-    LoadParameters(localparam.ParameterFile)
+  if localparam.fieldExists('ParameterFile') then 
+    LoadParameters(localparam.ParameterFile)  
   else if FileExists(DefaultParameterFile) then
     LoadParameters(DefaultParameterFile)
   else
@@ -480,9 +480,10 @@ begin
   begin
     create;
     addLine('Star-Square');
-    addLine('Horizontal Gradients');
+    addLine('Gratings & Amplitude morphing');
     addLine('Loaded images');
     addLine('Luminance Circles');
+    addLine('Gratings & Orientation morphing');
   end;
   with ParamWin do
   begin
@@ -653,9 +654,9 @@ begin
 end;
 
 // Shifting gratings
-procedure initGratings;
+procedure initGratings(nGrating:integer);
 begin
-  for i:=1 to 2 do
+  for i:=1 to nGrating do
   begin
     // create the grating (TLgrating object)
     with gratings[i] do
@@ -673,19 +674,29 @@ begin
   end;
 end;
 
-procedure MakeShiftingGratings(ObjValue:real);
+procedure MakeShiftingGratings(ObjValue:real; MorphingParameter:string);
+var
+  nGrating: integer;
+  chgAlpha, chgOri: boolean;
 begin
-
+  // How to interpret ObjValue
+  if MorphingParameter='amplitude' then begin nGrating:=2; chgOri:=FALSE; chgAlpha:=TRUE; end;
+  if MorphingParameter='orientation' then begin nGrating:=1; chgOri:=TRUE; chgAlpha:=FALSE; end;
+   
   // create the gratings if needed (TLgrating object)
-  if (not KeepGratingOn) then initGratings; // needed because of Elphy bug, might not be needed in new version
+  if (not KeepGratingOn) then initGratings(nGrating); // needed because contrary to TOnOff, TPhaseTranslation object stops moving, but does not stop showing the gratings at the end
 
-  for i:=1 to 2 do
+  for i:=1 to nGrating do
   begin
     // update the gratings
     with gratings[i] do
     begin
       phase := 0;
-      if i=1 then blendAlpha:=1 {(1-ObjValue)} else blendAlpha:=ObjValue; 
+      if chgAlpha then 
+      begin
+        if i=1 then blendAlpha:=1 {(1-ObjValue)} else blendAlpha:=ObjValue; 
+      end;
+      if chgOri then orientation:=(1-ObjValue)*alpha1 + ObjValue*alpha2;
     end;
     
     // create the shifting grating (TphaseTranslation object) and assign the grating to it
@@ -756,9 +767,10 @@ begin
   // Create protocol-specific visual object and assign it to the stim      
   case VProtocolType of
     1: MakeStarContour(VParam[TType]);  // Design the star|square shape
-    2: MakeShiftingGratings(VParam[TType]);
+    2: MakeShiftingGratings(VParam[TType],'amplitude');
     3: MakeBitmap(TType);
     4: MakeLuminanceCircle(VParam[TType]);
+    5: MakeShiftingGratings(VParam[TType],'orientation');
   end;
 end;
 
@@ -774,38 +786,16 @@ begin
   visualStim.extraTime:=RewardDelay/1000;
   // Init some objects
   case VProtocolType of 
-    2: initGratings;
+    2: initGratings(2);
     3: begin
          nmem:=NIntermediateStim;
          LoadImages; 
          if NIntermediateStim<>nmem then
            MessageBox('Number of intermediate stimuli not in accordance with number of images');
        end;
+    5: initGratings(1);
   end;
 end;
-
-procedure TestVisualStim;
-var
-  i:integer;
-  tmp:integer;
-begin 
-  SaveCurrentSettings;
-  initVisual;
-  VisualStim.OnStartAnimate1:=NIL;
-  VisualStim.OnStartAnimate2:=NIL;
-  
-  VParam.create(t_single,1,2+NIntermediateStim);
-  for i:= 1 to NIntermediateStim+2 do VParam[i]:=(i-1)/(NIntermediateStim+1);
-  
-  tmp:=StimDelay;
-  StimDelay:=300;
-  for i:= 1 to NIntermediateStim+2 do 
-  begin  
-    setVisualStim(i);
-    VisualStim.animate;
-  end;
-  StimDelay:=tmp;  
-end;  
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////// Auditory stimulation ////////////////////////////////
@@ -958,23 +948,6 @@ begin
   end;
 end;
 
-procedure TestSounds;
-begin
-  SaveCurrentSettings;
-  SParam.create(t_single,1,2+NIntermediateStim);
-  for i:= 1 to NIntermediateStim+2 do SParam[i]:=(i-1)/(NIntermediateStim+1);
-  initSounds;
-  VisualStim.OnStartAnimate1:=NIL;
-  VisualStim.OnStartAnimate2:=NIL;
-
-  for i:= 1 to NIntermediateStim+2 do
-  begin
-    if i=1 then delay(300) else delay(round(SDuration+300));
-    setAudioStim(i,TRUE);
-  end;
-end;
-
-
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// Reward routines /////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -1090,7 +1063,6 @@ begin
   end; 
   status.text[5]:=Istr(w)+' lick(s)';
   LickRecord[cnt]:=w;
-  TRecord[cnt]:=TType;
   Last:=v1[v1.Iend];
 end;    
 
@@ -1152,7 +1124,7 @@ begin
     if NC>=NREF then ref:=TRUE;
     if LickV<thresh then NC:=0;  
     delay(floor(del)); 
-  until (LickV<thresh) AND (ref);  
+  until ((LickV<thresh) AND (ref)) OR Visualstim.StopStim;  
 end;
 
 procedure WaitForMicroscope;
@@ -1161,9 +1133,16 @@ var
   Address:string;
 begin
   Address:=Dev+'/PORT1/LINE2';
+  // first get a 0 bit (make sure previous acquisition has finished)
   repeat
     ok:=Ni.Din(Address,dig);
-  until dig>0;
+    visualStim.TestStopStim;
+  until (dig=0) OR Visualstim.StopStim;
+  // then get a 1 bit (trigger)
+  repeat
+    ok:=Ni.Din(Address,dig);
+    visualStim.TestStopStim;
+  until (dig>0) OR Visualstim.StopStim;
 end;
 
 // Randomization function
@@ -1240,6 +1219,7 @@ begin
   
   // Start acquisition
   status.text[2] := 'Trial type: '+Istr(TrialType);
+  TRecord[cnt]:=TrialType;
   VisualStim.animate;       // Launch the visual stimulation  immediately
 
   // Reward
@@ -1251,7 +1231,6 @@ begin
   end;
 end;
 
-
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////// Experiment routines /////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -1260,14 +1239,14 @@ end;
 // Procedure for Episodes recording
 procedure Initialize_AcqAndTriggs;
 begin
-    
+           
   // Set acquisition
   with VisualStim do
   begin
     if Behavior then
       PeriodPerChannel:=1000/Lick_Sampling_Frequency 
     else
-      PeriodPerChannel:=20;
+      PeriodPerChannel:=10; // unit: ms
     VisualStim.OnStartAnimate1:=NIL;
     VisualStim.OnStartAnimate2:=NIL;
     case TriggerType of
@@ -1341,15 +1320,12 @@ begin
   end;
    
   // Set display range of acquisition
-  if TRUE then
-  begin
-    v1.Xmin:=0;
-    v1.Xmax:=StimDelay+VisualStimDuration+RewardDelay;
-    case DetectionType of
-      1: begin v1.Ymin:=0; v1.Ymax:=5500; end;
-      2: begin v1.Ymin:=-10500; v1.Ymax:=10500; end;
-      3: begin v1.Ymin:=0; v1.Ymax:=5500; end;
-    end;
+  v1.Xmin:=0;
+  v1.Xmax:=StimDelay+VisualStimDuration+RewardDelay; 
+  case DetectionType of
+    1: begin v1.Ymin:=0; v1.Ymax:=5500; end;
+    2: begin v1.Ymin:=-10500; v1.Ymax:=10500; end;
+    3: begin v1.Ymin:=0; v1.Ymax:=5500; end;
   end;
       
 end;
@@ -1495,6 +1471,49 @@ begin
   if ProtocolType=5 then RunContinuous else RunEpisodes;
   // Update the generic file name 
   Acquisition.GenericFileName := DataPath+DataName+'.DAT';
+end;
+
+procedure TestVisualStim;
+var
+  i:integer;
+  tmp:integer;
+begin 
+  SaveCurrentSettings;
+  Initialize_AcqAndTriggs;
+  initVisual;
+  VisualStim.OnStartAnimate1:=NIL;
+  VisualStim.OnStartAnimate2:=NIL;
+  
+  VParam.create(t_single,1,2+NIntermediateStim);
+  for i:= 1 to NIntermediateStim+2 do VParam[i]:=(i-1)/(NIntermediateStim+1);
+  
+  tmp:=StimDelay;
+  StimDelay:=300;
+  for i:= 1 to NIntermediateStim+2 do 
+  begin  
+    setVisualStim(i);
+    VisualStim.animate;
+    if Visualstim.StopStim then break;
+  end;
+  StimDelay:=tmp;  
+end;  
+
+procedure TestSounds;
+begin
+  SaveCurrentSettings;
+  SParam.create(t_single,1,2+NIntermediateStim);
+  for i:= 1 to NIntermediateStim+2 do SParam[i]:=(i-1)/(NIntermediateStim+1);
+  Initialize_AcqAndTriggs;
+  initSounds;
+  VisualStim.OnStartAnimate1:=NIL;
+  VisualStim.OnStartAnimate2:=NIL;
+
+  for i:= 1 to NIntermediateStim+2 do
+  begin
+    if i=1 then delay(300) else delay(round(SDuration+300));
+    setAudioStim(i,TRUE);
+    if Visualstim.StopStim then break;
+  end;
 end;
 
 
