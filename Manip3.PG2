@@ -612,7 +612,7 @@ begin
       ImageWidth:=VSize
     else
       ImageWidth:=VSize/height*width;
-    ImageHeight:=VSize/width*height;
+    ImageHeight:=ImageWidth/width*height;
     dx:=ImageWidth;
     dy:=ImageHeight;
   end;
