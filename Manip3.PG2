@@ -488,6 +488,7 @@ begin
     addLine('Loaded images');
     addLine('Luminance Circles');
     addLine('Gratings & Orientation morphing');
+    addLine('Squares at 2 positions');
   end;
   with ParamWin do
   begin
@@ -622,8 +623,8 @@ begin
   with bar do
   begin
     create;
-    dx:=20;
-    dy:=20;
+    dx:=VSize;
+    dy:=VSize;
     x:=xr;
     y:=yr;
     Lum:=VLum;
@@ -814,6 +815,7 @@ begin
     3: MakeBitmap(TType);
     4: MakeLuminanceCircle(VParam[TType]);
     5: MakeShiftingGratings(VParam[TType],'orientation');
+    6: MakeOneofTwoRectangles(TType);
   end;
 end;
 
