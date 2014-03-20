@@ -53,7 +53,7 @@ var
   
   ValveOpen, Behavior, Auditory, Visual, LoadedImages: boolean;
   TwoFreq, AmpMorph, FreqMorph: boolean;
-  alpha1, alpha2, VSize, VSpeed, VLum: real;
+  alpha1, alpha2, beta1, beta2, VSize, VSpeed, VLum: real;
   BackgroundLuminance: integer;
   KeepGratingOn,SquareWaveGrating: boolean;
   f1, f2, SLevel, SDuration, SDelay: real;
@@ -161,6 +161,7 @@ begin
   param.KeepGratingOn:=KeepGratingOn;
   param.SquareWaveGrating:=SquareWaveGrating;
   param.alpha1:=alpha1; param.alpha2:=alpha2;
+  param.beta1:=beta1; param.beta2:=beta2;
   param.VSize:=VSize; 
   param.VLum:=VLum;
   param.VSpeed:=VSpeed;
@@ -245,6 +246,8 @@ begin
   if param.fieldExists('SquareWaveGrating') then SquareWaveGrating:=param.SquareWaveGrating else SquareWaveGrating:=FALSE;
   alpha1:=param.alpha1;
   alpha2:=param.alpha2;
+  if param.fieldExists('beta1') then beta1:=param.beta1 else beta1:=0;
+  if param.fieldExists('beta2') then beta2:=param.beta2 else beta2:=0;
   VSize:=param.VSize;
   VLum:=param.VLum;
   if param.fieldExists('VSpeed') then VSpeed:=param.VSpeed else VSpeed:=0;
@@ -308,6 +311,7 @@ begin
   KeepGratingOn:=FALSE;
   SquareWaveGrating:=FALSE;
   alpha1:=0; alpha2:=0.1;
+  beta1:=0; beta2:=0;
   VSize:=10;
   VLum:=100;
   VSpeed:=400;
@@ -484,6 +488,7 @@ begin
     addLine('Loaded images');
     addLine('Luminance Circles');
     addLine('Gratings & Orientation morphing');
+    addLine('Squares at 2 positions');
   end;
   with ParamWin do
   begin
@@ -494,6 +499,8 @@ begin
     getBoolean('Square wave grating',SquareWaveGrating);
     getReal('S+ parameter',alpha1,5,2);
     getReal('S- parameter',alpha2,5,2);
+    getReal('S+ parameter 2',beta1,5,2);
+    getReal('S- parameter 2',beta2,5,2);
     getReal('Object Size',VSize,5,1);
     getReal('Object Luminance',VLum,5,1);
     getReal('Speed',VSpeed,5,1);
@@ -599,6 +606,43 @@ begin
     setVisualObject(bar);
   end;  
 end;  
+
+// Image display
+// ZP for DLP photostimulation
+procedure MakeOneofTwoRectangles(ObjValue:real);
+var
+xr,yr:real;
+begin
+
+  // choose coords alpha1,beta1 or alpha2,beta2 depending on value of ObjValue:
+  if ObjValue=1 then begin xr:=alpha1; yr:=beta1; end; 
+  if ObjValue=2 then begin xr:=alpha2; yr:=beta2; end;  
+ 
+   
+  // create the bar (Tbar object) and assign the contour to it
+  with bar do
+  begin
+    create;
+    dx:=VSize;
+    dy:=VSize;
+    x:=xr;
+    y:=yr;
+    Lum:=VLum;
+  end; 
+  
+  // create stim (TOnOff object)and assign the bar to it
+  with stim do
+  begin
+    create;
+    StartTime:=StimDelay/1000; // secondes
+    DtON:= VisualStimDuration/1000;
+    DtOff:= 0;
+    setSyncPulse(0); 
+    setVisualObject(bar);
+  end; 
+
+
+end;
 
 // Image display
 procedure MakeBitmap(TType:integer);
@@ -771,6 +815,7 @@ begin
     3: MakeBitmap(TType);
     4: MakeLuminanceCircle(VParam[TType]);
     5: MakeShiftingGratings(VParam[TType],'orientation');
+    6: MakeOneofTwoRectangles(TType);
   end;
 end;
 
