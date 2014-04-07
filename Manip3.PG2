@@ -699,14 +699,16 @@ begin
       if chgOri then orientation:=(1-ObjValue)*alpha1 + ObjValue*alpha2;
     end;
     
-    // create the shifting grating (TphaseTranslation object) and assign the grating to it
+   status.text[5]:='SPEED HACK!';
+   
+   // create the shifting grating (TphaseTranslation object) and assign the grating to it
     with shiftgrat[i] do
     begin
       create;
       StartTime:=StimDelay/1000; // secondes
       DtON:= VisualStimDuration/1000;
       DtOff:= 0;
-      speed:=VSpeed; 
+      if ObjValue=1 then speed:=0 else speed:=VSpeed; 
       setSyncPulse(0); 
       setVisualObject(gratings[i]);
     end;  
@@ -840,8 +842,10 @@ var
   iComp:Tvector;
   nS,nStim:integer;
   doMix,doLoad:boolean;
+  HackLevel:real;
 begin
-  display('Initializing sounds');
+  display('Initializing sounds');   
+  status.text[4] := 'HACK ON SOUND LEVEL!!!';
   // get the length of the sound vector
   with NIanalog do
   begin
@@ -888,7 +892,8 @@ begin
     case SProtocolType of
       1..2: // simple tone
       begin
-        Sounds[j].sinewave(5000*SLevel,1000/(f1+(f2-f1)*ObjValue),0);
+        if j=1 then HackLevel:=0 else HackLevel:=SLevel;
+        Sounds[j].sinewave(5000*HackLevel,1000/(f1+(f2-f1)*ObjValue),0);
       end;
       3..4: // ramp
       begin
@@ -1111,7 +1116,8 @@ var
   NREF,NC:integer;
   ref:boolean;
   Address:string;
-begin
+begin                     
+  display('wait for fork');
   Address:=Dev+'/AI1';
   thresh:=2;
   del:=20;
@@ -1132,6 +1138,7 @@ var
   dig,ok:integer;
   Address:string;
 begin
+  display('wait for microscope');
   Address:=Dev+'/PORT1/LINE2';
   // first get a 0 bit (make sure previous acquisition has finished)
   repeat
@@ -1201,12 +1208,15 @@ begin
   activeReward:=TRUE;
 
   // Run the trial/episode  
+  display('set visual stim');
   if Visual then setVisualStim(TrialType);           // Refresh the visual stimulation
+  display('set audio stim');
   if Auditory then setAudioStim(TrialType,FALSE);      // Refresh and load the auditory stimulation
 
   // Add a delay to the previous episode
   if (cnt>0) then
   begin
+    display('wait for some delay');
     tmp := TrialInterval;             // Minimal duration of trial
     tmp := tmp - (StimDelay+VisualStimDuration+RewardDelay); // Remaining time to wait
     if (tmp<0) then tmp := 0;         // Remaining time to wait
@@ -1220,6 +1230,7 @@ begin
   // Start acquisition
   status.text[2] := 'Trial type: '+Istr(TrialType);
   TRecord[cnt]:=TrialType;
+  display('Visualstim.animate');
   VisualStim.animate;       // Launch the visual stimulation  immediately
 
   // Reward
@@ -1251,7 +1262,7 @@ begin
     VisualStim.OnStartAnimate2:=NIL;
     case TriggerType of
       2: VisualStim.OnStartAnimate1:=WaitForFork; 
-      3: VisualStim.OnStartAnimate2:=WaitForMicroscope;
+      3: VisualStim.OnStartAnimate1:=WaitForMicroscope;
     end; 
   end;
   with Acquisition do
