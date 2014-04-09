@@ -1,8 +1,7 @@
 
 const
-  version = 'BB3 TD16'; // INCREMENT AFTER YOUR INITIAL AFTER EVERY MODIFICATION
   Sound_Sampling_Frequency= 192000;    // Hz
-  Lick_Sampling_Frequency = 1000;      // Hz 
+  //Lick_Sampling_Frequency = 1000;      // Hz 
   Sound_Directory = 'D:\Behavioral Experiments\Stimuli\Sounds\';
   //Image_Directory = 'D:\Behavioral Experiments\Stimuli\Images\';
   LocalParameterFile = 'D:\Elphy Programs\Manip3_LocalParameters.param';
@@ -11,16 +10,16 @@ const
 var
   Dev: string;      
   plot: TXYplot;
-  bar: Tbar;
+  bar, dumBar: Tbar; // dumBar and dumStim will be displayed anyway: they force the duration of the VisualStimulation to a certain length
+  Stim, dumStim: TonOff;
   gratings: array [1..2] of TLGrating;
   shiftgrat: array [1..2] of TphaseTranslation;
   bitmap: TVSbitmap;
   circle: Tdisk;
-  Stim: TonOff;
   VParam: Tvector; 
   SParam: Tvector;
   SPCopy: Tvector;
-  VPCopy: Tvector;
+  VPCopy: Tvector;        
   CRecord: Tvector;
   TRecord: Tvector;
   VRecord: Tvector; 
@@ -699,7 +698,7 @@ begin
       if chgOri then orientation:=(1-ObjValue)*alpha1 + ObjValue*alpha2;
     end;
     
-   status.text[5]:='SPEED HACK!';
+   //status.text[5]:='SPEED HACK!';
    
    // create the shifting grating (TphaseTranslation object) and assign the grating to it
     with shiftgrat[i] do
@@ -708,7 +707,8 @@ begin
       StartTime:=StimDelay/1000; // secondes
       DtON:= VisualStimDuration/1000;
       DtOff:= 0;
-      if ObjValue=1 then speed:=0 else speed:=VSpeed; 
+      //if ObjValue=1 then speed:=0 else speed:=VSpeed; 
+      speed:=VSpeed;
       setSyncPulse(0); 
       setVisualObject(gratings[i]);
     end;  
@@ -782,10 +782,8 @@ var
 begin
   // Background luminance
   StimScreen.BackGroundLum:=BackgroundLuminance;
-  // Erase all displays  
-  visualStim.disableStims; 
-  // Delay after stim
-  visualStim.extraTime:=RewardDelay/1000;
+  // // Delay after stim [no need any more: accurate extra time is already assigned when initializing the dumBar/dumStim objects]
+  // visualStim.extraTime:=RewardDelay/1000;
   // Init some objects
   case VProtocolType of 
     2: initGratings(2);
@@ -842,10 +840,10 @@ var
   iComp:Tvector;
   nS,nStim:integer;
   doMix,doLoad:boolean;
-  HackLevel:real;
+  //HackLevel:real;
 begin
   display('Initializing sounds');   
-  status.text[4] := 'HACK ON SOUND LEVEL!!!';
+  //status.text[4] := 'HACK ON SOUND LEVEL!!!';
   // get the length of the sound vector
   with NIanalog do
   begin
@@ -892,8 +890,9 @@ begin
     case SProtocolType of
       1..2: // simple tone
       begin
-        if j=1 then HackLevel:=0 else HackLevel:=SLevel;
-        Sounds[j].sinewave(5000*HackLevel,1000/(f1+(f2-f1)*ObjValue),0);
+        //if j=1 then HackLevel:=0 else HackLevel:=SLevel;
+        //Sounds[j].sinewave(5000*HackLevel,1000/(f1+(f2-f1)*ObjValue),0);
+        Sounds[j].sinewave(5000*SLevel,1000/(f1+(f2-f1)*ObjValue),0);
       end;
       3..4: // ramp
       begin
@@ -1207,7 +1206,7 @@ begin
   else detector.free;
   activeReward:=TRUE;
 
-  // Run the trial/episode  
+  // Prepare the stimulation
   display('set visual stim');
   if Visual then setVisualStim(TrialType);           // Refresh the visual stimulation
   display('set audio stim');
@@ -1251,13 +1250,15 @@ end;
 procedure Initialize_AcqAndTriggs;
 begin
            
-  // Set acquisition
+  // Set general parameters of acquisition
   with VisualStim do
   begin
-    if Behavior then
-      PeriodPerChannel:=1000/Lick_Sampling_Frequency 
-    else
-      PeriodPerChannel:=10; // unit: ms
+    // Period MUST BE 1s because this is assumed for several actions
+    // (for example, for setting the output that will trigger the sound)
+    PeriodPerChannel:=1; // unit: ms
+    // Erase all displays
+    disableStims;
+    // Handle triggers
     VisualStim.OnStartAnimate1:=NIL;
     VisualStim.OnStartAnimate2:=NIL;
     case TriggerType of
@@ -1265,6 +1266,27 @@ begin
       3: VisualStim.OnStartAnimate1:=WaitForMicroscope;
     end; 
   end;
+  with dumBar do
+  begin
+    // 'dumBar' object is not visible but is here just to force the VisualStim 
+    // to a specific length (necessary for an accurate length of acquisition and 
+    // output when only sounds are played)
+    create;
+    x:=-stimScreen.width/2+1;
+    y:=stimScreen.height/2-1;
+    dx:=1;
+    dy:=1;
+    Lum:=BackgroundLuminance;
+  end;   
+  with dumStim do
+  begin
+    create;
+    DtON:= (StimDelay+VisualStimDuration+RewardDelay)/1000; // seconds
+    setSyncPulse(0); 
+    setVisualObject(dumBar);
+  end;  
+  
+  // Set input parameters
   with Acquisition do
   begin
     Fcontinuous:=false;
@@ -1297,7 +1319,7 @@ begin
     end;
   end;
        
-  // Set triggers
+  // Set output parameters
   with Stimulator do
   begin
     BufferCount:=1;
@@ -1315,15 +1337,20 @@ begin
     begin
       ChannelType:=TO_digiBit;
       PhysNum:=0;
-      
       BitNum:=6;
     end;
       
     VisualStim.InitAcqParams; // Initialise les buffers en tenant compte des paramètres d'acquisition
                               // et de stimulation visuelle
                               // ensuite, on peut remplir ces buffers  
+    
+    status.text[3]:=Istr(vector[1].Icount);
     vector[1].fill(0);
-    vector[1].fill1(1,StimDelay+SDelay,StimDelay+SDelay+10);  // un pulse à 500 ms. Ce pulse est envoyé sur PFI1
+    vector[1].fill1(1,StimDelay+SDelay,StimDelay+SDelay+10);  // Ce pulse est envoyé sur PFI1
+                                                // il déclenche le signal analogique
+
+    // TEST!
+    vector[1].fill1(1,StimDelay+SDelay+1000,StimDelay+SDelay+1000+10);  // Ce pulse est envoyé sur PFI1
                                                 // il déclenche le signal analogique
 
     vector[2].fill(0);                          // Autre trigger
@@ -1407,6 +1434,7 @@ if VisualStim.OpenDataFile then
       time0:= TimeGetTime;  
       inc(cnt);                         // Increment counter                                    
     until (cnt=MaxTrialNumber) or Visualstim.StopStim;
+    VisualStim.StopStim:=FALSE;
     
     // Save parameters and computed vectors
     SaveParametersDatafile;
@@ -1506,6 +1534,7 @@ begin
     VisualStim.animate;
     if Visualstim.StopStim then break;
   end;
+  VisualStim.StopStim:=FALSE;
   StimDelay:=tmp;  
 end;  
 
@@ -1522,9 +1551,11 @@ begin
   for i:= 1 to NIntermediateStim+2 do
   begin
     if i=1 then delay(300) else delay(round(SDuration+300));
+    display(Istr(i));
     setAudioStim(i,TRUE);
     if Visualstim.StopStim then break;
   end;
+  VisualStim.StopStim:=FALSE;
 end;
 
 
