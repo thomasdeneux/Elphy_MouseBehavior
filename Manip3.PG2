@@ -1204,6 +1204,7 @@ end;
 
 // CASE 1 : TRIGGER AN IMMEDIATE REWARD
 
+
 procedure DetectorEvent(n:integer);
 begin              
   case ProtocolType of 
@@ -1226,7 +1227,7 @@ begin
   begin
     create;
     // true,true stands for 'both up- and down- crossings generate an event'
-    initCrossings(v1,Vdetect, true,true, LickThresholdTop,LickThresholdBottom, 100, 0,false);
+    initCrossings(v1,Vdetect, true,false, LickThresholdTop,LickThresholdBottom, 100, 0,false);
     AddEvent(DetectorEvent,0);
   end;
 end;
@@ -1313,7 +1314,7 @@ var
 begin
   // Choose the type of trial
   TrialType:=SelectTrialType; // This also increments cnt and updates TRecord!
-  
+
   // Init the detector if necessary?
   if Behavior and (DetectionType=1) then
   begin
