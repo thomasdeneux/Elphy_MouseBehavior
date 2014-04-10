@@ -1,4 +1,3 @@
-oijoij
 const
   Sound_Sampling_Frequency= 192000;    // Hz
   //Lick_Sampling_Frequency = 1000;      // Hz 
