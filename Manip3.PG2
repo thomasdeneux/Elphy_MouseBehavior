@@ -1,7 +1,6 @@
 const
   Sound_Sampling_Frequency= 192000;    // Hz
   //Lick_Sampling_Frequency = 1000;      // Hz 
-  Sound_Directory = 'D:\Behavioral Experiments\Stimuli\Sounds\';
   //Image_Directory = 'D:\Behavioral Experiments\Stimuli\Images\';
   LocalParameterFile = 'D:\Elphy Programs\Manip3_LocalParameters.param';
   ParameterDir = 'Y:\Behavior\Elphy\parameters';
@@ -34,13 +33,14 @@ var
   FileNameHandle: integer;
   Sounds: array [1..100] of TVector;     
   LoadedSounds: array [1..100] of TVector;
-  ImageListFile: string;
+  ImageListFile,SoundListFile: string;
   
   RandomizationVector: TVector; 
   
   i,j,k: integer;
   a,last: real;
   str,str1,str2: string;
+  vect,kernel: TVector;
   Go:integer;
   res: integer; 
   gh:real;
@@ -61,7 +61,7 @@ var
   NIntermediateStim,NStimPerEp,NRepPerBlock,NSounds,NImages: integer;
   ProtocolType,DetectionType,TriggerType,VProtocolType,SProtocolType: word;
   
-  FileListCat,XName,SDirName,VDirName: string; 
+  FileListCat,XName,VDirName: string; 
   ParameterFile,ParameterFileBase: string;
   ParameterChanged: boolean;
   
@@ -69,6 +69,8 @@ var
   Vdetect: Tvector;
 
   status: TstatusBar;
+
+  level:TDBRecord;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -198,6 +200,7 @@ begin
   param.VLum:=VLum;
   param.VSpeed:=VSpeed;
   param.ImageListFile:=ImageListFile;
+  param.SoundListFile:=SoundListFile;
   
   param.SProtocolType:=SProtocolType;
   param.f1:=f1; param.f2:=f2;
@@ -283,6 +286,7 @@ begin
   VLum:=param.VLum;
   if param.fieldExists('VSpeed') then VSpeed:=param.VSpeed else VSpeed:=0;
   if param.fieldExists('ImageListFile') then ImageListFile:=param.ImageListFile else ImageListFile:='';
+  if param.fieldExists('SoundListFile') then SoundListFile:=param.SoundListFile else SoundListFile:='';
   
   SProtocolType:=param.SProtocolType;  
   f1:=param.f1;
@@ -347,6 +351,7 @@ begin
   VLum:=100;
   VSpeed:=400;
   ImageListFile:='';
+  SoundListFile:='';
   
   SProtocolType:=1;
   f1:=8000; f2:=10000;
@@ -561,6 +566,7 @@ begin
     getReal('Sound duration',SDuration,5,1);
     getReal('Sound delay',SDelay,5,1);
     getReal('Sound amplitude',SLevel,5,1);
+    getString('Sound list file',SoundListFile,30);
     getCommandA('Load sounds', Go,401);
     getCommandA('Test sounds', Go,402);
   end;
@@ -841,53 +847,63 @@ end;
 ////////////////////////// Auditory stimulation ////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////  
 
-procedure LoadImages2;
+procedure LoadSounds;
 var 
   valid:boolean;
   fid:integer;
+  SDirName:string;
 begin
-    valid := FileExists(ImageListFile);
-    if valid then
+  valid := FileExists(SoundListFile);
+  if valid then
+  begin
+    SplitFileName(SoundListFile,SDirName,str1,str2);
+    fid:=1;
+    OpenText(fid,SoundListFile,TRUE);
+    with SoundList do
     begin
-      SplitFileName(ImageListFile,VDirName,str1,str2);
-      fid:=1;
-      OpenText(fid,ImageListFile,TRUE);
-      with ImageList do
+      create();
+      ReadlnText(fid,str);
+      i:=0;
+      while length(str)>0 do
       begin
-        create();
-        ReadlnText(fid,str);
-        while length(str)>0 do
+        i:=i+1;
+        str:=SDirName+'\'+str;
+        valid:=FileExists(str);
+        if valid then
         begin
-          str:=VDirName+'\'+str;
-          valid:=FileExists(str);
-          if valid then
-          begin
-            addLine(str);
-            ReadlnText(fid,str);
-          end
-          else
-            str:='';
-        end;
-      end; 
-    end;
-    if valid then 
-    begin
-      NIntermediateStim:=ImageList.count-2;
-    end
-    else
-    begin
-      ImageListFile:='';
-      MessageBox('Invalid image list file, or images not present');  
-    end;
-    ParamWin.update;
+          display('load sound from '+str);
+          addLine(str);
+          LoadedSounds[i].create(t_single,1,1);
+          LoadedSounds[i].LoadFromWaveFile(str, 1);
+          LoadedSounds[i].dy:=5000/32768; // adjust to a max of 5000
+          //for j:=LoadedSounds[i].Istart to LoadedSounds[i].Iend do
+          //  LoadedSounds[i][j] := LoadedSounds[i][j]*4;
+          ReadlnText(fid,str);
+        end
+        else
+          str:='';
+      end;
+    end; 
+  end;
+  if valid then 
+  begin
+    NIntermediateStim:=SoundList.count-2;
+  end
+  else
+  begin
+    ImageListFile:='';
+    MessageBox('Invalid image list file, or images not present');  
+  end;
+  ParamWin.update;
 end;
 
-procedure LoadSounds;
+procedure LoadSounds_Old;
 var 
 valid,notempty:boolean;
 local_name:string;
 i:integer;
 fname:string;
+Sound_Directory,SDirName:string;
 begin
   valid:=ChooseDirectory('Choose the sound directory',Sound_Directory,SDirName);
   if valid then
@@ -915,6 +931,13 @@ begin
   end;
 end;
 
+procedure ChooseSounds;
+begin
+  SoundListFile:='*.txt';
+  ChooseFile(SoundListFile,'Choose the sounds listing file');
+  LoadSounds;
+end;
+
 procedure initSounds;
 var
   ObjValue,fstart,fend,frac,time:real;
@@ -925,6 +948,7 @@ var
 begin
   display('Initializing sounds');   
   //status.text[4] := 'HACK ON SOUND LEVEL!!!';
+  
   // get the length of the sound vector
   with NIanalog do
   begin
@@ -952,7 +976,7 @@ begin
   doLoad := (SProtocolType>=5) and (SProtocolType<=6);
   if doLoad then
   begin
-    while SoundList.count<2 do LoadSounds;
+    LoadSounds;
     if not doMix and (SoundList.count<>2+NIntermediateStim) then
     begin
       MessageBox('Number of intermediate stimuli not in accordance with number of sounds');
@@ -961,6 +985,15 @@ begin
     end;
   end;
 
+  // load equalization parameters
+  if FALSE then
+  begin
+    kernel.create;
+    kernel.loadObject('D:\Elphy Programs\ImpulseResponse.param'); 
+    level.create;
+    level.loadObject('D:\Elphy Programs\CalibratedLevel.param');
+  end;
+  
   // compute sounds, or copy loaded sounds
   for i:=iComp.Istart to iComp.Iend do
   begin
@@ -991,9 +1024,25 @@ begin
         end;
       end;
       5..6: // loaded files
+      begin
         VCopy(LoadedSounds[i],Sounds[j]);
+      end;
     end;
-    Sounds[j][Sounds[j].Iend]:=0; // make sure the vector finishes with a zero
+    
+    // equalization
+    if FALSE then
+    begin
+      vect.create;
+      VCopy(Sounds[j],vect);
+      kernel.dx := Sounds[j].dx;
+      Convolve(vect,kernel,Sounds[j]);   
+      VMulNum(Sounds[j],Exp((5-level.dB0/20)*Ln(10)));       
+    end;
+     
+    // make sure the vector finishes with a zero
+    Sounds[j][Sounds[j].Iend]:=0; 
+    
+    
   end;
 
   // mix sounds
@@ -1235,7 +1284,6 @@ end;
 
 procedure DetectorEventSoundUpdate(n:integer);
 begin  
-  display(Istr(n));
   if n<NStimPerEp then
   begin          
     setAudioStim(SelectTrialType,FALSE);
@@ -1248,7 +1296,7 @@ begin
   begin                                   
     create;
     // true,true stands for 'both up- and down- crossings generate an event'
-    initTimer(v1,TrialInterval,StimDelay+TrialInterval/2);
+    initTimer(v1,TrialInterval,StimDelay+SDuration+50);
     AddEvent(DetectorEventSoundUpdate,0);
   end;
 end;
@@ -1423,11 +1471,14 @@ begin
       ChannelCount:=1; //2;
       with Channels[1] do
       begin
-        case DetectionType of
-          1: PhysNum:=1;
-          2: PhysNum:=0;
-          3: PhysNum:=1;
-        end;
+        if Behavior then
+          case DetectionType of
+            1: PhysNum:=1;
+            2: PhysNum:=0;
+            3: PhysNum:=1;
+          end
+        else
+          PhysNum:=1; // nothing to record -> record audio stim, just for fun
         UnitY:='mV';
         setScale(0,32767,0,10000);
         DownSamplingFactor:= 1;
@@ -1487,11 +1538,14 @@ begin
   // Set display range of acquisition
   v1.Xmin:=0;
   v1.Xmax:=EpisodeDuration; 
-  case DetectionType of
-    1: begin v1.Ymin:=0; v1.Ymax:=5500; end;
-    2: begin v1.Ymin:=-10500; v1.Ymax:=10500; end;
-    3: begin v1.Ymin:=0; v1.Ymax:=5500; end;
-  end;
+  if Behavior then
+    case DetectionType of
+      1: begin v1.Ymin:=0; v1.Ymax:=5500; end;
+      2: begin v1.Ymin:=-10500; v1.Ymax:=10500; end;
+      3: begin v1.Ymin:=0; v1.Ymax:=5500; end;
+    end
+  else
+    begin v1.Ymin:=-500; v1.Ymax:=500; end;
       
 end;
 
@@ -1678,7 +1732,7 @@ begin
 
   for i:= 1 to NIntermediateStim+2 do
   begin
-    if i=1 then delay(300) else delay(round(SDuration+300));
+    if i=1 then delay(2000) else delay(round(SDuration+300));
     display(Istr(i));
     setAudioStim(i,TRUE);
     if Visualstim.StopStim then break;
@@ -1721,7 +1775,7 @@ begin
     301: ChooseImages;
     302: TestVisualStim;
     // Sound parameters
-    401: LoadSounds;
+    401: ChooseSounds;
     402: TestSounds;
     // Otherwise, some parameter has probably been changed
     else ParameterChanged:=true;
