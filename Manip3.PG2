@@ -1,54 +1,3 @@
-{$EDIT ParameterSet}
-////////////////////////////////////////////////////////////////////////////////
-///////////////////////////// Define Parameter sets ////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-const
-  NSTIMMAX = 100;
-  
-type
-  ParameterSetGlobal = record
-    // General
-    ProtocolType,TriggerType: word;
-    Behavior, Auditory, Visual: boolean; 
-    MaxTrialNumber: integer;
-    NStim,NStimPerEp,NRepPerBlock: integer; 
-    // Timing
-    StimDelay,VisualStimDuration: integer;
-    LickCountingDelay,RewardDelay,RandomDelay,PunitionDelay,RefractoryTime: integer;
-    TrialInterval: integer;
-    // Behavior
-    DetectionType,
-    LickThresholdTop, LickThresholdBottom: real;
-    LickNumber,NFreeTrials: integer; 
-    // Visual Stim
-    alpha1, alpha2: real;
-    BackgroundLuminance: integer;
-    KeepGratingOn,SquareWaveGrating: boolean;
-    // Audio Stim
-    f1, f2: real;
-  end;
-  
-type
-  ParameterSetStim = record
-    // Visual stim
-    VProtocolType: word;
-    VSize, VSpeed, VLum: real; 
-    // Audio stim
-    SProtocolType: word;
-    Sfreq1, Sfreq2, SLevel, SDuration, SDelay: real;
-  end;
-  
-type
-  ParameterSet = record
-    Glob: ParameterSetGlobal;
-    Stims: array[1..NSTIMMAX] of ParameterSetStim;
-  end;
-
-////////////////////////////////////////////////////////////////////////////////
-///////////////////////////// Variables ////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
 const
   Sound_Sampling_Frequency= 192000;    // Hz
   //Lick_Sampling_Frequency = 1000;      // Hz 
@@ -57,8 +6,6 @@ const
   ParameterDir = 'Y:\Behavior\Elphy\parameters';
   DefaultParameterFile = 'Y:\Behavior\Elphy\parameters\default.param';
 var
-  Protocol: ParameterSet;
-  p: ParameterSetStim;
   Dev: string;      
   plot: TXYplot;
   bar, dumBar: Tbar; // dumBar and dumStim will be displayed anyway: they force the duration of the VisualStimulation to a certain length
@@ -86,10 +33,9 @@ var
   FileNameHandle: integer;
   Sounds: array [1..100] of TVector;     
   LoadedSounds: array [1..100] of TVector;
-  detector: Tdetector;
-  Vdetect: Tvector;
-  status: TstatusBar;
-  level:TDBRecord; 
+  ImageListFile,SoundListFile: string;
+  
+  RandomizationVector: TVector; 
   
   i,j,k: integer;
   a,last: real;
@@ -100,19 +46,33 @@ var
   gh:real;
   time0:integer;
   cnt: integer;
-  
-  ValveOpen: boolean;
   rewardTotal, rewardVolume, rewardSlope, rewardConversion: real;
   activeReward: boolean;
-   
+  
+  ValveOpen, Behavior, Auditory, Visual, LoadedImages: boolean;
+  TwoFreq, AmpMorph, FreqMorph: boolean;
+  alpha1, alpha2, VSize, VSpeed, VLum: real;
+  BackgroundLuminance: integer;
+  KeepGratingOn,SquareWaveGrating: boolean;
+  f1, f2, SLevel, SDuration, SDelay: real;
+  LickThresholdTop, LickThresholdBottom: real;
+  StimDelay,VisualStimDuration,LickCountingDelay,RewardDelay,RandomDelay,PunitionDelay,RefractoryTime: integer;
+  LickNumber,NFreeTrials,MaxTrialNumber,TrialInterval: integer; 
+  NIntermediateStim,NStimPerEp,NRepPerBlock,NSounds,NImages: integer;
+  ProtocolType,DetectionType,TriggerType,VProtocolType,SProtocolType: word;
+  
   FileListCat,XName,VDirName: string; 
   ParameterFile,ParameterFileBase: string;
   ParameterChanged: boolean;
   
+  detector: Tdetector;
+  Vdetect: Tvector;
 
-     
+  status: TstatusBar;
 
-{$EDIT Tools}
+  level:TDBRecord;
+
+
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// Small tools //////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -135,7 +95,6 @@ begin
     ShowDialogBox;
 end;
 
-{$EDIT Code}
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// Check settings ///////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -161,13 +120,6 @@ begin
       CheckCurrentSettings:=FALSE;
     end;      
   end;
-  if Behavior and (NStim mod 2=1) then
-  begin
-    // refuse odd numbers
-    ErrorDlg('Number of stimuli must be even for behavior');
-    CheckCurrentSettings:=FALSE;
-  end;
-
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -223,7 +175,7 @@ begin
   param.rewardSlope:=rewardSlope;
   param.TriggerType:=TriggerType;
   param.MaxTrialNumber:=MaxTrialNumber;
-  param.NStim:=NStim;
+  param.NIntermediateStim:=NIntermediateStim;
   param.NStimPerEp:=NStimPerEp;
   param.NRepPerBlock:=NRepPerBlock;
   param.NFreeTrials:=NFreeTrials;
@@ -240,7 +192,7 @@ begin
   param.RefractoryTime:=RefractoryTime;
   
   param.VProtocolType:=VProtocolType;
-  param.BackgroundLuminance:=Protocol.glob.BackgroundLuminance;
+  param.BackgroundLuminance:=BackgroundLuminance;
   param.KeepGratingOn:=KeepGratingOn;
   param.SquareWaveGrating:=SquareWaveGrating;
   param.alpha1:=alpha1; param.alpha2:=alpha2;
@@ -308,7 +260,7 @@ begin
   if param.fieldExists('rewardSlope') then rewardSlope:=param.rewardSlope else rewardSlope:=0;
   if param.fieldExists('TriggerType') then TriggerType:=param.TriggerType else if param.DetectionType=3 then TriggerType:=2 else TriggerType:=1;
   MaxTrialNumber:=param.MaxTrialNumber;
-  if param.fieldExists('NStim') then NStim:=param.NStim else NStim:=param.NIntermediateStim+2;
+  NIntermediateStim:=param.NIntermediateStim;
   if param.fieldExists('NStimPerEp') then NStimPerEp:=param.NStimPerEp else NStimPerEp:=1;
   if param.fieldExists('NRepPerBlock') then NRepPerBlock:=param.NRepPerBlock else NRepPerBlock:=4;
   NFreeTrials:=param.NFreeTrials;
@@ -325,7 +277,7 @@ begin
   if param.fieldExists('RefractoryTime') then RefractoryTime:=Floor(param.RefractoryTime) else RefractoryTime:=0;
  
   VProtocolType:=param.VProtocolType;
-  if param.fieldExists('BackgroundLuminance') then Protocol.glob.BackgroundLuminance:=param.BackgroundLuminance else Protocol.glob.BackgroundLuminance:=25;
+  if param.fieldExists('BackgroundLuminance') then BackgroundLuminance:=param.BackgroundLuminance else BackgroundLuminance:=25;
   if param.fieldExists('KeepGratingOn') then KeepGratingOn:=param.KeepGratingOn else KeepGratingOn:=FALSE;
   if param.fieldExists('SquareWaveGrating') then SquareWaveGrating:=param.SquareWaveGrating else SquareWaveGrating:=FALSE;
   alpha1:=param.alpha1;
@@ -371,7 +323,7 @@ begin
   rewardVolume:=8;
   rewardSlope:=0;
   MaxTrialNumber:=10000;
-  NStim:=2;
+  NIntermediateStim:=0;
   NStimPerEp:=1;
   NRepPerBlock:=4;
   ProtocolType:=5;
@@ -391,7 +343,7 @@ begin
   RefractoryTime:=0;
  
   VProtocolType:=1;
-  Protocol.glob.BackgroundLuminance:=25;
+  BackgroundLuminance:=25;
   KeepGratingOn:=FALSE;
   SquareWaveGrating:=FALSE;
   alpha1:=0; alpha2:=0.1;
@@ -523,7 +475,7 @@ begin
     selectPanel('1.2.1');
     getstringList1('Protocol Type',ProtocolList,ProtocolType);
     getstringList1('Trigger',TriggerList,TriggerType);
-    getInteger('# Stimuli',NStim,5);
+    getInteger('# Intermediate Stimuli (Only Even)',NIntermediateStim,5);
     getInteger('# Stim per Episode',NStimPerEp,5);
     getInteger('# Repetition per randomized block',NRepPerBlock,5);
     getInteger('Max. trial number',MaxTrialNumber,5);
@@ -581,7 +533,7 @@ begin
   begin
     selectPanel('1.2.4');
     getstringList1('Stimulus protocol',VisualProtocols,VProtocolType);
-    getInteger('Background Luminance',Protocol.glob.BackgroundLuminance,5);
+    getInteger('Background Luminance',BackgroundLuminance,5);
     getBoolean('Keep grating on',KeepGratingOn);
     getBoolean('Square wave grating',SquareWaveGrating);
     getReal('S+ parameter',alpha1,5,2);
@@ -840,7 +792,7 @@ begin
     end;
     if valid then 
     begin
-      NStim:=ImageList.count;
+      NIntermediateStim:=ImageList.count-2;
     end
     else
     begin
@@ -875,17 +827,17 @@ var
   nmem: integer;
 begin
   // Background luminance
-  StimScreen.BackGroundLum:=Protocol.glob.BackgroundLuminance;
+  StimScreen.BackGroundLum:=BackgroundLuminance;
   // // Delay after stim [no need any more: accurate extra time is already assigned when initializing the dumBar/dumStim objects]
   // visualStim.extraTime:=RewardDelay/1000;
   // Init some objects
   case VProtocolType of 
     2: initGratings(2);
     3: begin
-         nmem:=NStim;
+         nmem:=NIntermediateStim;
          LoadImages; 
-         if NStim<>nmem then
-           MessageBox('Number of stimuli not in accordance with number of images');
+         if NIntermediateStim<>nmem then
+           MessageBox('Number of intermediate stimuli not in accordance with number of images');
        end;
     5: initGratings(1);
   end;
@@ -935,7 +887,7 @@ begin
   end;
   if valid then 
   begin
-    NStim:=SoundList.count;
+    NIntermediateStim:=SoundList.count-2;
   end
   else
   begin
@@ -973,7 +925,7 @@ begin
     SoundList.show;
     if SoundList.count>2 then
     begin
-      NStim:=SoundList.count;
+      NIntermediateStim:=SoundList.count-2;
       ParamWin.update;
     end;
   end;
@@ -990,7 +942,7 @@ procedure initSounds;
 var
   ObjValue,fstart,fend,frac,time:real;
   iComp:Tvector;
-  nS:integer;
+  nS,nStim:integer;
   doMix,doLoad:boolean;
   //HackLevel:real;
 begin
@@ -1004,6 +956,7 @@ begin
     setAnalogOutput(0,1000/Sound_Sampling_Frequency,SDuration,false);
     nS:=vector.Icount;
   end;
+  nStim := 2+NIntermediateStim;
 
   // compute all or mix extrema?
   doMix := (SProtocolType mod 2 = 0);
@@ -1011,11 +964,11 @@ begin
   begin
     iComp.create(t_single,1,2);
     iComp[1] := 1;
-    iComp[2] := NStim;
+    iComp[2] := nStim;
   end
   else
   begin
-    iComp.create(t_single,1,NStim);
+    iComp.create(t_single,1,2+NIntermediateStim);
     for i:=1 to nStim do iComp[i] := i;
   end;
 
@@ -1024,10 +977,10 @@ begin
   if doLoad then
   begin
     LoadSounds;
-    if not doMix and (SoundList.count<>NStim) then
+    if not doMix and (SoundList.count<>2+NIntermediateStim) then
     begin
       MessageBox('Number of intermediate stimuli not in accordance with number of sounds');
-      NStim := SoundList.count;
+      NIntermediateStim := SoundList.count-2;
       ParamWin.update;
     end;
   end;
@@ -1038,6 +991,7 @@ begin
     kernel.create;
     kernel.loadObject('D:\Elphy Programs\ImpulseResponse.param'); 
     level.create;
+    level.loadObject('D:\Elphy Programs\CalibratedLevel.param');
   end;
   
   // compute sounds, or copy loaded sounds
@@ -1050,6 +1004,8 @@ begin
     case SProtocolType of
       1..2: // simple tone
       begin
+        //if j=1 then HackLevel:=0 else HackLevel:=SLevel;
+        //Sounds[j].sinewave(5000*HackLevel,1000/(f1+(f2-f1)*ObjValue),0);
         Sounds[j].sinewave(5000*SLevel,1000/(f1+(f2-f1)*ObjValue),0);
       end;
       3..4: // ramp
@@ -1092,7 +1048,7 @@ begin
   // mix sounds
   if doMix then
   begin
-    for i:=2 to NStim-1 do
+    for i:=2 to NIntermediateStim+1 do
     begin
       Sounds[i].create;
       VCopy(NIanalog.vector,Sounds[i]);
@@ -1228,9 +1184,9 @@ begin
   Case ProtocolType of
     1 .. 2:
       begin
-        if ((w>= LickNumber) OR (cnt<=NFreeTrials)) AND (TType<=NStim/2) AND activeReward then 
+        if ((w>= LickNumber) OR (cnt<=NFreeTrials)) AND (TType<=NIntermediateStim/2+1) AND activeReward then 
         OpenValve(Floor(rewardVolume+max(0,w-LickNumber)*rewardSlope)); 
-        CRecord[cnt]:=Ord( ((w>= LickNumber) AND (TType<=NStim/2)) OR ((w< LickNumber) AND (TType>NStim/2)));
+        CRecord[cnt]:=Ord( ((w>= LickNumber) AND (TType<=NIntermediateStim/2+1)) OR ((w< LickNumber) AND (TType>NIntermediateStim/2+1)));
       end;
     3 .. 4:
       begin
@@ -1257,9 +1213,9 @@ begin
   inc(cnt);
   // number of conditions
   case ProtocolType of
-    1..2: ncond:=NStim;
+    1..2: ncond:=2+NIntermediateStim;
     3: ncond:=1;
-    4: ncond:=NStim;
+    4: ncond:=2+NIntermediateStim;
   end;
   nblock:=ncond*NRepPerBlock;
   idx:= (cnt-1) mod nblock;
@@ -1443,7 +1399,7 @@ begin
   tmp := tmp - (StimDelay+VisualStimDuration+RewardDelay); // Remaining time to wait
   if (tmp<0) then tmp := 0;         // Remaining time to wait
   tmp := tmp + Random*RandomDelay;  // Add a random delay between 0 and 'RandomDelay'
-  if Behavior and (TRecord[cnt]>NStim/2) and (CRecord[cnt]=0) then
+  if Behavior and (TRecord[cnt]>NIntermediateStim/2+1) and (CRecord[cnt]=0) then
     tmp := dd+PunitionDelay;        // Add a punishment for false positive
   dd := (time0-timeGetTime) + floor(tmp); // How many milliseconds to wait
   if dd>0 then
@@ -1496,7 +1452,7 @@ begin
     y:=stimScreen.height/2-1;
     dx:=1;
     dy:=1;
-    Lum:=Protocol.glob.BackgroundLuminance;
+    Lum:=BackgroundLuminance;
   end;   
   with dumStim do
   begin
@@ -1621,22 +1577,32 @@ if VisualStim.OpenDataFile then
     
     // Set stimuli for each trial type
     // Positive 1 and negative 2 Visual and Sound parameters 
-    // Note that if 'Behavior' is active, NStim has to be even (this is checked in function CheckCurrentSettings)
-    VParam.create(t_single,1,NStim);
-    SParam.create(t_single,1,NStim);
+    if Behavior and (NIntermediateStim mod 2=1) then
+    begin
+      // refuse odd numbers
+      MessageBox('Number of intermediate stimuli must be even for behavior');
+      NIntermediateStim := NIntermediateStim-1;
+      ParamWin.update;
+    end;
+    VParam.create(t_single,1,2+NIntermediateStim);
+    SParam.create(t_single,1,2+NIntermediateStim);
     
     // Sets the concommitance of audio (S) and visual (V) stimuli (via the description parameter)   
-     For i:= 1 to NStim do
+     For i:= 0 to NIntermediateStim+1 do
       begin
-          VParam[i]:=(i-1)/(NStim-1);
-          SParam[i]:=(i-1)/(NStim-1);
+          VParam[i+1]:=i/(NIntermediateStim+1);
+          SParam[i+1]:=i/(NIntermediateStim+1);
       end;
       
       SPCopy.create;
       if(ProtocolType=2)  then   
        begin 
         VCopy(SParam,SPCopy);
-        For i:=1 to NStim do SParam[i]:=SPCopy[NStim+1-i];
+        For i:= 1 to floor(NIntermediateStim/2)+1 do
+         begin
+          SParam[floor(NIntermediateStim/2)+2-i]:=SPCopy[i];
+          SParam[floor(NIntermediateStim/2)+1+i]:=SPCopy[NIntermediateStim+3-i];
+         end;
        end;
 
     // Pre-compute sounds
@@ -1739,12 +1705,12 @@ begin
   VisualStim.OnStartAnimate1:=NIL;
   VisualStim.OnStartAnimate2:=NIL;
   
-  VParam.create(t_single,1,NStim);
-  for i:= 1 to NStim do VParam[i]:=(i-1)/(NStim-1);
+  VParam.create(t_single,1,2+NIntermediateStim);
+  for i:= 1 to NIntermediateStim+2 do VParam[i]:=(i-1)/(NIntermediateStim+1);
   
   tmp:=StimDelay;
   StimDelay:=300;
-  for i:= 1 to NStim do 
+  for i:= 1 to NIntermediateStim+2 do 
   begin  
     setVisualStim(i);
     VisualStim.animate;
@@ -1757,14 +1723,14 @@ end;
 procedure TestSounds;
 begin
   SaveCurrentSettings;
-  SParam.create(t_single,1,NStim);
-  for i:= 1 to NStim do SParam[i]:=(i-1)/(NStim-1);
+  SParam.create(t_single,1,2+NIntermediateStim);
+  for i:= 1 to NIntermediateStim+2 do SParam[i]:=(i-1)/(NIntermediateStim+1);
   Initialize_AcqAndTriggs;
   initSounds;
   VisualStim.OnStartAnimate1:=NIL;
   VisualStim.OnStartAnimate2:=NIL;
 
-  for i:= 1 to NStim do
+  for i:= 1 to NIntermediateStim+2 do
   begin
     if i=1 then delay(2000) else delay(round(SDuration+300));
     display(Istr(i));
@@ -1867,7 +1833,7 @@ begin
   ParamWin.OnEvent:=ParamWinCallback;
   
   // Create visual stimulation objects
-  StimScreen.BackGroundLum:=Protocol.glob.BackgroundLuminance;
+  StimScreen.BackGroundLum:=BackgroundLuminance;
 end; 
 
 
