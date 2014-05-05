@@ -1,6 +1,11 @@
 const
   Sound_Sampling_Frequency= 192000;    // Hz
+<<<<<<< HEAD
   //Lick_Sampling_Frequency = 1000;      // Hz
+=======
+  Lick_Sampling_Frequency = 1000;      // Hz
+  Sound_Directory = 'D:\Behavioral Experiments\Stimuli\Sounds\';
+>>>>>>> joel
   //Image_Directory = 'D:\Behavioral Experiments\Stimuli\Images\';
   LocalParameterFile = 'D:\Elphy Programs\Manip3_LocalParameters.param';
   ParameterDir = 'Y:\Behavior\Elphy\parameters';
@@ -14,6 +19,10 @@ var
   shiftgrat: array [1..2] of TphaseTranslation;
   bitmap: TVSbitmap;
   circle: Tdisk;
+<<<<<<< HEAD
+=======
+  Stim: TonOff;
+>>>>>>> joel
   VParam: Tvector;
   SParam: Tvector;
   SPCopy: Tvector;
@@ -22,18 +31,30 @@ var
   TRecord: Tvector;
   VRecord: Tvector;
   SRecord: Tvector;
+<<<<<<< HEAD
+=======
+  WaitVect: Tvector;
+>>>>>>> joel
   LickRecord: Tvector;
   vfilt: Tvector;
   NIanalog: TNIinterface;
   param,localparam : TDBrecord;
   ParamWin: Tdialog;
   Ni: TNIinterface;
+<<<<<<< HEAD
   FileList,ProtocolList,DetectionList,TriggerList,VisualProtocols,AuditoryProtocols: Tmemo;
+=======
+  FileList,ProtocolList,DetectionList,TriggerList,VisualProtocols,AuditoryProtocols,RewardCriterionList: Tmemo;
+>>>>>>> joel
   SoundList,ImageList: Tmemo;
   FileNameHandle: integer;
   Sounds: array [1..100] of TVector;
   LoadedSounds: array [1..100] of TVector;
+<<<<<<< HEAD
   ImageListFile,SoundListFile: string;
+=======
+  ImageListFile: string;
+>>>>>>> joel
 
   RandomizationVector: TVector;
 
@@ -43,7 +64,11 @@ var
   vect,kernel: TVector;
   Go:integer;
   res: integer;
+<<<<<<< HEAD
   gh:real;
+=======
+  gh,Vbase:real;
+>>>>>>> joel
   time0:integer;
   cnt: integer;
   rewardTotal, rewardVolume, rewardSlope, rewardConversion: real;
@@ -57,11 +82,19 @@ var
   f1, f2, SLevel, SDuration, SDelay: real;
   LickThresholdTop, LickThresholdBottom: real;
   StimDelay,VisualStimDuration,LickCountingDelay,RewardDelay,RandomDelay,PunitionDelay,RefractoryTime: integer;
+<<<<<<< HEAD
   LickNumber,NFreeTrials,MaxTrialNumber,TrialInterval: integer;
   NIntermediateStim,NStimPerEp,NRepPerBlock,NSounds,NImages: integer;
   ProtocolType,DetectionType,TriggerType,VProtocolType,SProtocolType: word;
 
   FileListCat,XName,VDirName: string;
+=======
+  LickNumber,NFreeTrials,MaxTrialNumber,TrialInterval,TrialType: integer;
+  NIntermediateStim,NRepPerBlock,NSounds,NImages: integer;
+  ProtocolType,DetectionType,TriggerType,VProtocolType,SProtocolType,RewardCriterion: word;
+
+  FileListCat,XName,SDirName,VDirName: string;
+>>>>>>> joel
   ParameterFile,ParameterFileBase: string;
   ParameterChanged: boolean;
 
@@ -165,6 +198,11 @@ procedure UpdateParam;
 begin
   param.create;
 
+<<<<<<< HEAD
+=======
+  param.ProtocolType:=ProtocolType;
+  param.RewardCriterion:=RewardCriterion;
+>>>>>>> joel
   param.ProtocolType:=ProtocolType;
   param.Behavior:=Behavior;
   param.DetectionType:=DetectionType;
@@ -200,7 +238,10 @@ begin
   param.VLum:=VLum;
   param.VSpeed:=VSpeed;
   param.ImageListFile:=ImageListFile;
+<<<<<<< HEAD
   param.SoundListFile:=SoundListFile;
+=======
+>>>>>>> joel
 
   param.SProtocolType:=SProtocolType;
   param.f1:=f1; param.f2:=f2;
@@ -252,6 +293,7 @@ begin
   // Update parameters
   ProtocolType:=param.ProtocolType;
   if param.fieldExists('Behavior') then Behavior:=param.Behavior else Behavior:=TRUE;
+  if param.fieldExists('RewardCriterion') then RewardCriterion:=param.RewardCriterion else RewardCriterion:=1;
   DetectionType:=param.DetectionType;
   LickThresholdTop:=param.LickThresholdTop;
   LickThresholdBottom:=param.LickThresholdBottom;
@@ -286,7 +328,10 @@ begin
   VLum:=param.VLum;
   if param.fieldExists('VSpeed') then VSpeed:=param.VSpeed else VSpeed:=0;
   if param.fieldExists('ImageListFile') then ImageListFile:=param.ImageListFile else ImageListFile:='';
+<<<<<<< HEAD
   if param.fieldExists('SoundListFile') then SoundListFile:=param.SoundListFile else SoundListFile:='';
+=======
+>>>>>>> joel
 
   SProtocolType:=param.SProtocolType;
   f1:=param.f1;
@@ -327,6 +372,7 @@ begin
   NStimPerEp:=1;
   NRepPerBlock:=4;
   ProtocolType:=5;
+  RewardCriterion:=1;
   Behavior:=TRUE;
   Auditory:=TRUE;
   Visual:=TRUE;
@@ -351,7 +397,10 @@ begin
   VLum:=100;
   VSpeed:=400;
   ImageListFile:='';
+<<<<<<< HEAD
   SoundListFile:='';
+=======
+>>>>>>> joel
 
   SProtocolType:=1;
   f1:=8000; f2:=10000;
@@ -462,6 +511,17 @@ begin
     addLine('Pre-training with both stimuli');
     addLine('Touch test');
   end;
+<<<<<<< HEAD
+=======
+  // List of detection routines
+  with DetectionList do
+  begin
+    create;
+    addLine('Touch: Downward crossing');
+    addLine('Lick, head fixed: Electric contact');
+    addLine('Lick, freely moving: IR fork');
+  end;
+>>>>>>> joel
   // List of triggers
   with TriggerList do
   begin
@@ -469,11 +529,33 @@ begin
     addLine('none');
     addLine('fork');
     addLine('microscope');
+    addLine('no lick');
+  end;
+    // List of detection routines
+  with RewardCriterionList do
+  begin
+    create;
+    addLine('Lick Count');
+    addLine('Immediate on lick');
   end;
   with ParamWin do
   begin
     selectPanel('1.2.1');
     getstringList1('Protocol Type',ProtocolList,ProtocolType);
+<<<<<<< HEAD
+=======
+    getstringList1('Reward  Criterion',RewardCriterionList,RewardCriterion);
+    setText(''); // add a separation line
+    getBoolean('Behavior', Behavior);
+    getstringList1('Detection Type',DetectionList,DetectionType);
+    getInteger('Minimal lick number',LickNumber,5);
+    getReal('Sensor top threshold (mV)',LickThresholdTop,5,1);
+    getReal('Sensor bottom threshold (mV)',LickThresholdBottom,5,1);
+    getReal('Reward volume (ul)',rewardVolume,5,1);
+    getReal('Extra reward per extra lick (ul)',rewardSlope,5,1);
+    getInteger('# free training trials',NFreeTrials,5);
+    setText(''); // add a separation line
+>>>>>>> joel
     getstringList1('Trigger',TriggerList,TriggerType);
     getInteger('# Intermediate Stimuli (Only Even)',NIntermediateStim,5);
     getInteger('# Stim per Episode',NStimPerEp,5);
@@ -499,6 +581,7 @@ begin
     getInteger('Refractory time (ms)',RefractoryTime,5);
   end;
 
+<<<<<<< HEAD
   // Behavior
   with DetectionList do
   begin
@@ -519,6 +602,8 @@ begin
     getInteger('# free training trials',NFreeTrials,5);
   end;
 
+=======
+>>>>>>> joel
   // Visual parameters
   with VisualProtocols do
   begin
@@ -744,7 +829,11 @@ begin
       if chgOri then orientation:=(1-ObjValue)*alpha1 + ObjValue*alpha2;
     end;
 
+<<<<<<< HEAD
    //status.text[5]:='SPEED HACK!';
+=======
+   status.text[5]:='SPEED HACK!';
+>>>>>>> joel
 
    // create the shifting grating (TphaseTranslation object) and assign the grating to it
     with shiftgrat[i] do
@@ -753,8 +842,12 @@ begin
       StartTime:=StimDelay/1000; // secondes
       DtON:= VisualStimDuration/1000;
       DtOff:= 0;
+<<<<<<< HEAD
       //if ObjValue=1 then speed:=0 else speed:=VSpeed;
       speed:=VSpeed;
+=======
+      if ObjValue=1 then speed:=0 else speed:=VSpeed;
+>>>>>>> joel
       setSyncPulse(0);
       setVisualObject(gratings[i]);
     end;
@@ -828,8 +921,15 @@ var
 begin
   // Background luminance
   StimScreen.BackGroundLum:=BackgroundLuminance;
+<<<<<<< HEAD
   // // Delay after stim [no need any more: accurate extra time is already assigned when initializing the dumBar/dumStim objects]
   // visualStim.extraTime:=RewardDelay/1000;
+=======
+  // Erase all displays
+  visualStim.disableStims;
+  // Delay after stim
+  visualStim.extraTime:=RewardDelay/1000;
+>>>>>>> joel
   // Init some objects
   case VProtocolType of
     2: initGratings(2);
@@ -849,6 +949,7 @@ end;
 
 procedure LoadSounds;
 var
+<<<<<<< HEAD
   valid:boolean;
   fid:integer;
   SDirName:string;
@@ -899,6 +1000,8 @@ end;
 
 procedure LoadSounds_Old;
 var
+=======
+>>>>>>> joel
 valid,notempty:boolean;
 local_name:string;
 i:integer;
@@ -944,11 +1047,18 @@ var
   iComp:Tvector;
   nS,nStim:integer;
   doMix,doLoad:boolean;
+<<<<<<< HEAD
   //HackLevel:real;
 begin
   display('Initializing sounds');
   //status.text[4] := 'HACK ON SOUND LEVEL!!!';
 
+=======
+  HackLevel:real;
+begin
+  display('Initializing sounds');
+  //status.text[4] := 'HACK ON SOUND LEVEL!!!';
+>>>>>>> joel
   // get the length of the sound vector
   with NIanalog do
   begin
@@ -1005,7 +1115,10 @@ begin
       1..2: // simple tone
       begin
         //if j=1 then HackLevel:=0 else HackLevel:=SLevel;
+<<<<<<< HEAD
         //Sounds[j].sinewave(5000*HackLevel,1000/(f1+(f2-f1)*ObjValue),0);
+=======
+>>>>>>> joel
         Sounds[j].sinewave(5000*SLevel,1000/(f1+(f2-f1)*ObjValue),0);
       end;
       3..4: // ramp
@@ -1165,11 +1278,16 @@ begin
        Xstart:=StimDelay+LickCountingDelay;
        Xend:=StimDelay+VisualStimDuration+RewardDelay;
        mode:= sm_min;
-       height:= LickThresholdTop;
+       height:= -LickThresholdBottom;
        execute;
       end;
       w:= det.count;
+      Vbase:=vfilt.Maxi0;
      end;
+<<<<<<< HEAD
+=======
+
+>>>>>>> joel
     // Freely moving
     3:
      begin
@@ -1184,13 +1302,21 @@ begin
   Case ProtocolType of
     1 .. 2:
       begin
+<<<<<<< HEAD
         if ((w>= LickNumber) OR (cnt<=NFreeTrials)) AND (TType<=NIntermediateStim/2+1) AND activeReward then
+=======
+        if ((w>= LickNumber) OR (cnt<NFreeTrials)) AND (TType<=NIntermediateStim/2+1) AND activeReward then
+>>>>>>> joel
         OpenValve(Floor(rewardVolume+max(0,w-LickNumber)*rewardSlope));
         CRecord[cnt]:=Ord( ((w>= LickNumber) AND (TType<=NIntermediateStim/2+1)) OR ((w< LickNumber) AND (TType>NIntermediateStim/2+1)));
       end;
     3 .. 4:
       begin
+<<<<<<< HEAD
         if ((w>= LickNumber) OR (cnt<=NFreeTrials)) AND activeReward then
+=======
+        if ((w>= LickNumber) OR (cnt<NFreeTrials)) AND activeReward then
+>>>>>>> joel
           OpenValve(Floor(rewardVolume+max(0,w-LickNumber)*rewardSlope));
         CRecord[cnt]:=Ord(w>= LickNumber);
       end;
@@ -1199,6 +1325,7 @@ begin
   LickRecord[cnt]:=w;
   Last:=v1[v1.Iend];
 end;
+<<<<<<< HEAD
 
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// Randomization for trial type /////////////////////
@@ -1245,6 +1372,8 @@ begin
   TRecord[cnt]:=SelectTrialType;
   status.text[2] := 'Stim '+Istr(cnt)+' -> '+Istr(SelectTrialType);
 end;
+=======
+>>>>>>> joel
 
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// Detector routines ////////////////////////////////
@@ -1256,12 +1385,19 @@ end;
 procedure DetectorEvent(n:integer);
 begin
   case ProtocolType of
+<<<<<<< HEAD
     3:
     //if activeReward and (Vdetect[Vdetect.Iend]>StimDelay) then
     if (Vdetect[Vdetect.Iend]>StimDelay) then
+=======
+    1 .. 4:
+>>>>>>> joel
     begin
+     if (Vdetect[Vdetect.Iend]>StimDelay+LickCountingDelay) AND (TrialType<=NIntermediateStim/2+1) AND (activeReward) then
+     begin
       OpenValve(rewardVolume);
       activeReward:=FALSE;
+     end;
     end;
     5: OpenValve(rewardVolume);
   end;
@@ -1275,7 +1411,11 @@ begin
   begin
     create;
     // true,true stands for 'both up- and down- crossings generate an event'
+<<<<<<< HEAD
     initCrossings(v1,Vdetect, true,false, LickThresholdTop,LickThresholdBottom, 100, 0,false);
+=======
+    initCrossings(v1,Vdetect, true,false, LickThresholdTop+Vbase,LickThresholdBottom+Vbase, 100, 0,false);
+>>>>>>> joel
     AddEvent(DetectorEvent,0);
   end;
 end;
@@ -1331,7 +1471,53 @@ begin
     if NC>=NREF then ref:=TRUE;
     if LickV<thresh then NC:=0;
     delay(floor(del));
+<<<<<<< HEAD
   until ((LickV<thresh) AND (ref)) OR Visualstim.StopStim;
+=======
+
+  until ((LickV<thresh) AND (ref)) OR Visualstim.StopStim;
+  display('Trial');
+end;
+
+procedure WaitForNoLick;
+var
+  LickV,thresh,del,RefreshTime:real;
+  NREF,NREFRE,NC,NC0:integer;
+  ref:boolean;
+  Address:string;
+begin
+
+  display('wait for no lick');
+  Address:=Dev+'/AI0';
+  thresh:=(LickThresholdBottom+Vbase)/1000;
+  status.text[6]:='Vbase=' + Rstr(Vbase,5,2);
+  del:=10;
+  NC:=0;  NC0:=0;
+  ref:=FALSE;
+  NREF:=floor(RefractoryTime/del);
+  NREFRE:=floor(1000/del);
+  WaitVect.create(5,1,NREFRE);
+  repeat
+    Ni.Ain(Address,1,LickV);
+    NC0:=NC0+1; WaitVect[NC0]:=LickV;
+    if LickV>=thresh then NC:=NC+1;
+    if NC>=NREF then ref:=TRUE;
+    if LickV<thresh then NC:=0;
+
+    if NC0>=NREFRE then
+      begin
+          Vbase:=WaitVect.Maxi0*1000;
+          thresh:=(LickThresholdBottom+Vbase)/1000;
+          NC0:=0;
+      end;
+
+    delay(floor(del));
+   // status.text[3]:=Istr(NC);
+   // status.text[4]:=Rstr(LickV,5,2);
+   // status.text[6]:=Rstr(thresh,5,2);
+  until ((LickV>thresh) AND (ref)) OR Visualstim.StopStim;
+  display('Trial');
+>>>>>>> joel
 end;
 
 procedure WaitForMicroscope;
@@ -1353,6 +1539,7 @@ begin
   until (dig>0) OR Visualstim.StopStim;
 end;
 
+<<<<<<< HEAD
 // Procedure defining what to do in each episode
 procedure DoEpisode;
 var
@@ -1364,6 +1551,56 @@ begin
 
   // Init the detector if necessary?
   if Behavior and (DetectionType=1) then
+=======
+// Randomization function
+function SelectTrialType:integer;
+var
+   i,j,idx,ncond,nblock,tmp:integer;
+begin
+  // number of conditions
+  case ProtocolType of
+    1..2: ncond:=2+NIntermediateStim;
+    3: ncond:=1;
+    4: ncond:=2+NIntermediateStim;
+  end;
+  nblock:=ncond*NRepPerBlock;
+  idx:= cnt mod nblock;
+  // create/re-shuffle vector?
+  if idx = 0 then
+  begin
+    if cnt=0 then
+    begin
+      // create vector
+      RandomizationVector.create(t_longint,0,nblock-1);
+      for i:=1 to ncond do
+        for j:=0 to NRepPerBlock-1 do
+          RandomizationVector[(i-1)*NRepPerBlock+j] := i;
+    end;
+    // shuffle
+    for i:=0 to nblock-1 do
+    begin
+      j := floor(nblock*Random);
+      tmp := RandomizationVector.JValue[i];
+      RandomizationVector[i] := RandomizationVector.JValue[j];
+      RandomizationVector[j] := tmp;
+    end;
+  end;
+  // get trial type
+  SelectTrialType:=RandomizationVector.JValue[idx];
+end;
+
+// Procedure defining what to do in each episode
+procedure DoEpisode;
+var
+  dd:integer;
+  tmp:real;
+begin
+  // Choose the type of trial
+  TrialType:=SelectTrialType;
+
+  // Init the detector for immediate rewards
+  if Behavior and (RewardCriterion=2) then
+>>>>>>> joel
   begin
     InitDetector; // detector for immediate reward
     VisualStim.InstallDetector(detector);
@@ -1376,13 +1613,37 @@ begin
   else detector.free;
   activeReward:=TRUE;
 
+<<<<<<< HEAD
   // Prepare the stimulation
+=======
+  // Run the trial/episode
+>>>>>>> joel
   display('set visual stim');
   if Visual then setVisualStim(TrialType);           // Refresh the visual stimulation
   display('set audio stim');
   if Auditory then setAudioStim(TrialType,FALSE);      // Refresh and load the auditory stimulation
 
+<<<<<<< HEAD
   // Start acquisition
+=======
+  // Add a delay to the previous episode
+  if (cnt>0) then
+  begin
+    display('wait for some delay');
+    tmp := TrialInterval;             // Minimal duration of trial
+    tmp := tmp - (StimDelay+VisualStimDuration+RewardDelay); // Remaining time to wait
+    if (tmp<0) then tmp := 0;         // Remaining time to wait
+    tmp := tmp + Random*RandomDelay;  // Add a random delay between 0 and 'RandomDelay'
+    if Behavior and (TRecord[cnt-1]>NIntermediateStim/2+1) and (CRecord[cnt-1]=0) then
+      tmp := dd+PunitionDelay;        // Add a punishment for false positive
+    dd := (time0-timeGetTime) + floor(tmp); // How many milliseconds to wait
+    delay(dd);
+  end;
+
+  // Start acquisition
+  status.text[2] := 'Trial type: '+Istr(TrialType);
+  TRecord[cnt]:=TrialType;
+>>>>>>> joel
   display('Visualstim.animate');
   VisualStim.animate;       // Launch the visual stimulation  immediately
 
@@ -1390,6 +1651,7 @@ begin
   if Behavior then
   begin
     RewardFunction(TrialType);         // Check the number of licks and deliver the reward
+    activeReward:=TRUE;
     LickRecord.refresh;
     CRecord.refresh;
   end;
@@ -1422,6 +1684,7 @@ var
   SoundStart, EpisodeDuration: integer;
 begin
 
+<<<<<<< HEAD
   // Set general parameters of acquisition
   if (not Visual) and (NStimPerEp>1) then
     EpisodeDuration := StimDelay+NStimPerEp*TrialInterval
@@ -1435,11 +1698,22 @@ begin
     // Erase all displays
     disableStims;
     // Handle triggers
+=======
+  // Set acquisition
+  with VisualStim do
+  begin
+    if Behavior then
+      PeriodPerChannel:=1000/Lick_Sampling_Frequency
+    else
+      PeriodPerChannel:=10; // unit: ms
+
+>>>>>>> joel
     VisualStim.OnStartAnimate1:=NIL;
     VisualStim.OnStartAnimate2:=NIL;
     case TriggerType of
       2: VisualStim.OnStartAnimate1:=WaitForFork;
       3: VisualStim.OnStartAnimate1:=WaitForMicroscope;
+<<<<<<< HEAD
     end;
   end;
   with dumBar do
@@ -1463,6 +1737,12 @@ begin
   end;
 
   // Set input parameters
+=======
+      4: VisualStim.OnStartAnimate1:=WaitForNoLick;
+    end;
+  end;
+  // Acquisition parameters
+>>>>>>> joel
   with Acquisition do
   begin
     Fcontinuous:=false;
@@ -1498,7 +1778,11 @@ begin
     end;
   end;
 
+<<<<<<< HEAD
   // Set output parameters
+=======
+  // Set triggers
+>>>>>>> joel
   with Stimulator do
   begin
     BufferCount:=1;
@@ -1516,14 +1800,21 @@ begin
     begin
       ChannelType:=TO_digiBit;
       PhysNum:=0;
+<<<<<<< HEAD
+=======
+
+>>>>>>> joel
       BitNum:=6;
     end;
 
     VisualStim.InitAcqParams; // Initialise les buffers en tenant compte des paramètres d'acquisition
                               // et de stimulation visuelle
                               // ensuite, on peut remplir ces buffers
+<<<<<<< HEAD
 
     status.text[3]:=Istr(vector[1].Icount);
+=======
+>>>>>>> joel
     vector[1].fill(0);
     for i:=1 to NStimPerEp do
     begin
@@ -1537,6 +1828,7 @@ begin
 
   // Set display range of acquisition
   v1.Xmin:=0;
+<<<<<<< HEAD
   v1.Xmax:=EpisodeDuration;
   if Behavior then
     case DetectionType of
@@ -1546,6 +1838,14 @@ begin
     end
   else
     begin v1.Ymin:=-500; v1.Ymax:=500; end;
+=======
+  v1.Xmax:=StimDelay+VisualStimDuration+RewardDelay;
+  case DetectionType of
+    1: begin v1.Ymin:=0; v1.Ymax:=5500; end;
+    2: begin v1.Ymin:=-10500; v1.Ymax:=10500; end;
+    3: begin v1.Ymin:=0; v1.Ymax:=5500; end;
+  end;
+>>>>>>> joel
 
 end;
 
@@ -1554,6 +1854,9 @@ procedure RunEpisodes;
 var
 i:integer;
 MatName:string;
+tmp:real;
+Address:string;
+
 
 begin
 if VisualStim.OpenDataFile then
@@ -1563,17 +1866,29 @@ if VisualStim.OpenDataFile then
     Initialize_AcqAndTriggs;
 
     // Initialize time and trial counter
+<<<<<<< HEAD
     cnt:=0; // cnt is incremented at each call to SelectTrialType
+=======
+    cnt:=0;
+>>>>>>> joel
     time0:= TimeGetTime;
     //
     Last:=5000;
 
     // Set storage vectors
+<<<<<<< HEAD
     TRecord.modify(2,1,MaxTrialNumber);   TRecord.Xmax:=MaxTrialNumber;
     VRecord.modify(2,1,MaxTrialNumber);   VRecord.Xmax:=MaxTrialNumber;
     SRecord.modify(2,1,MaxTrialNumber);   SRecord.Xmax:=MaxTrialNumber;
     CRecord.modify(2,1,MaxTrialNumber);   CRecord.Xmax:=MaxTrialNumber;
     LickRecord.modify(2,1,MaxTrialNumber);  LickRecord.Xmax:=MaxTrialNumber;
+=======
+    TRecord.modify(2,0,MaxTrialNumber-1);   TRecord.Xmax:=MaxTrialNumber-1;
+    VRecord.modify(2,0,MaxTrialNumber-1);   VRecord.Xmax:=MaxTrialNumber-1;
+    SRecord.modify(2,0,MaxTrialNumber-1);   SRecord.Xmax:=MaxTrialNumber-1;
+    CRecord.modify(2,0,MaxTrialNumber-1);   CRecord.Xmax:=MaxTrialNumber-1;
+    LickRecord.modify(2,0,MaxTrialNumber-1);  LickRecord.Xmax:=MaxTrialNumber-1;
+>>>>>>> joel
 
     // Set stimuli for each trial type
     // Positive 1 and negative 2 Visual and Sound parameters
@@ -1609,12 +1924,32 @@ if VisualStim.OpenDataFile then
     if Visual then initVisual;
     if Auditory then initSounds;
 
+<<<<<<< HEAD
+=======
+    // Estimate baseline voltage
+    if Behavior then
+      begin
+       Address:=Dev+'/AI0';
+       Ni.Ain(Address,1,tmp);
+       Vbase:=tmp*1000;
+       delay(50);
+       Ni.Ain(Address,1,tmp);
+       if(tmp*1000>Vbase) then Vbase:=tmp*1000;
+       status.text[6]:='Vbase=' + Rstr(Vbase,5,2);
+    end;
+
+>>>>>>> joel
     // Episodes loop
     repeat
       DoEpisode;                        // Launch episode
       time0:= TimeGetTime;
+<<<<<<< HEAD
     until (cnt=MaxTrialNumber) or Visualstim.StopStim;  // Note that cnt is incremented in SelectTrialType function
     VisualStim.StopStim:=FALSE;
+=======
+      inc(cnt);                         // Increment counter
+    until (cnt=MaxTrialNumber) or Visualstim.StopStim;
+>>>>>>> joel
 
     // Save parameters and computed vectors
     SaveParametersDatafile;
@@ -1680,8 +2015,11 @@ end;
 // General experiment procedure
 procedure RunTheExp;
 begin
+<<<<<<< HEAD
   // Check current settings
   if not CheckCurrentSettings then break;
+=======
+>>>>>>> joel
   // Save current settings
   SaveCurrentSettings;
   // Re-init some variables
@@ -1716,7 +2054,10 @@ begin
     VisualStim.animate;
     if Visualstim.StopStim then break;
   end;
+<<<<<<< HEAD
   VisualStim.StopStim:=FALSE;
+=======
+>>>>>>> joel
   StimDelay:=tmp;
 end;
 
@@ -1809,9 +2150,15 @@ begin
    Ymax:=2;
   end;
 
+<<<<<<< HEAD
   VRecord.create(t_smallint,1,1);
   SRecord.create(t_smallint,1,1);
   TRecord.create(t_smallint,1,1);
+=======
+  VRecord.create(t_smallint,0,1);
+  SRecord.create(t_smallint,0,1);
+  TRecord.create(t_smallint,0,1);
+>>>>>>> joel
 
   // Parameters interface
   DesignInterface;
