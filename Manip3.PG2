@@ -46,7 +46,7 @@ var
   res: integer;
   gh,Vbase:real;
   time0:integer;
-  cnt: integer;
+  cnt, TrialType: integer;
   rewardTotal, rewardVolume, rewardSlope, rewardConversion: real;
   activeReward: boolean;
 
@@ -1415,7 +1415,7 @@ end;
 // Procedure defining what to do in each episode
 procedure DoEpisode;
 var
-  dd, TrialType:integer;
+  dd:integer;
   tmp:real;
 begin
   // Choose the type of trial
