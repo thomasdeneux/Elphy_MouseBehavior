@@ -1,11 +1,8 @@
 {$EDIT ParameterSet}
 ////////////////////////////////////////////////////////////////////////////////
-///////////////////////////// Define Parameter sets ////////////////////////////
+///////////////////////////// Parameters ///////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-const
-  NSTIMMAX = 100;
-  
 type
   ParameterSetGlobal = record
     // General
@@ -39,14 +36,17 @@ type
     Sfreq1, Sfreq2, SLevel, SDuration, SDelay: real;
   end;
   
-type
-  ParameterSet = record
-    Glob: ParameterSetGlobal;
-    Stims: array[1..NSTIMMAX] of ParameterSetStim;
-  end;
+const
+  NSTIMMAX = 100;
+  
+var
+  gpar: ParameterSetGlobal;  // Global parameters (do not change during the experiment) 
+  spar: ParameterSetStim;    // Stim parameters (might change between trials)
+  sparA: array [1..NSTIMMAX] of ParameterSetStim;  // Values of stim parameters for every trial
+  sparM: ParameterSetStim;                         // Values of stim parameters in the menus
 
 ////////////////////////////////////////////////////////////////////////////////
-///////////////////////////// Variables ////////////////////////////////////////
+///////////////////////////// Other variables //////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
 const
@@ -57,8 +57,6 @@ const
   ParameterDir = 'Y:\Behavior\Elphy\parameters';
   DefaultParameterFile = 'Y:\Behavior\Elphy\parameters\default.param';
 var
-  Protocol: ParameterSet;
-  p: ParameterSetStim;
   Dev: string;      
   plot: TXYplot;
   bar, dumBar: Tbar; // dumBar and dumStim will be displayed anyway: they force the duration of the VisualStimulation to a certain length
@@ -143,25 +141,25 @@ end;
 function CheckCurrentSettings:boolean;
 begin
   CheckCurrentSettings:=TRUE;
-  if NStimPerEp>1 then
+  if gpar.NStimPerEp>1 then
   begin
-    if Behavior or Visual or (not Auditory) then
+    if gpar.Behavior or gpar.Visual or (not gpar.Auditory) then
     begin
       ErrorDlg('Several Stim per Episode is valid only for passive auditory experiments.');
       CheckCurrentSettings:=FALSE;
     end;
-    if TrialInterval<1000 then
+    if gpar.TrialInterval<1000 then
     begin
       ErrorDlg('Several Stim per Episode: Min Trial Interval must be a least 1 second.');
       CheckCurrentSettings:=FALSE;
     end;      
-    if (MaxTrialNumber mod NStimPerEp)<>0 then
+    if (gpar.MaxTrialNumber mod gpar.NStimPerEp)<>0 then
     begin
       ErrorDlg('Number of Stim per Episode must divide total number of trials.');
       CheckCurrentSettings:=FALSE;
     end;      
   end;
-  if Behavior and (NStim mod 2=1) then
+  if gpar.Behavior and (gpar.NStim mod 2=1) then
   begin
     // refuse odd numbers
     ErrorDlg('Number of stimuli must be even for behavior');
