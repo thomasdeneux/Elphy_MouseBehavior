@@ -1,12 +1,64 @@
-{$EDIT Tools}
+{$EDIT VariablesAndTools}
+////////////////////////////////////////////////////////////////////////////////
+///////////////////////////// Variables other than parameters //////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+const
+  Sound_Sampling_Frequency= 192000;    // Hz
+  //Lick_Sampling_Frequency = 1000;      // Hz
+var
+  plot: TXYplot;
+  bar, dumBar: Tbar; // dumBar and dumStim will be displayed anyway: they force the duration of the VisualStimulation to a certain length
+  Stim, dumStim: TonOff;
+  gratings: array [1..2] of TLGrating;
+  shiftgrat: array [1..2] of TphaseTranslation;
+  bitmap: TVSbitmap;
+  circle: Tdisk;
+  VParam: Tvector;
+  SParam: Tvector;
+  SPCopy: Tvector;
+  VPCopy: Tvector;
+  CRecord: Tvector;
+  TRecord: Tvector;
+  VRecord: Tvector;
+  SRecord: Tvector;
+  WaitVect: Tvector;
+  LickRecord: Tvector;
+  vfilt: Tvector;
+  NIanalog: TNIinterface;
+  ParamWin: Tdialog;
+  Ni: TNIinterface;
+  FileList,ProtocolList,DetectionList,TriggerList,VisualProtocols,AuditoryProtocols,RewardCriterionList: Tmemo;
+  SoundList,ImageList: Tmemo;
+  FileNameHandle: integer;
+  Sounds: array [1..100] of TVector;
+  LoadedSounds: array [1..100] of TVector;
+  detector: Tdetector;
+  Vdetect: Tvector;
+  level:TDBRecord; 
+
+  
+  vect,kernel: TVector;
+  Go:integer;
+  res: integer;
+  gh,Vbase:real;
+  time0:integer;
+  cnt, TrialType: integer;
+  
+  ValveOpen: boolean;
+  rewardTotal: real;
+  activeReward: boolean;
+  
+  status: TstatusBar;     // use display('some text') or status.text[k]:='some text' to display some text in the status bar
+
+  i,j,k: integer;         // it is usefull to have some 'available' integer variables without needing to declare them in the functions
+  str,str1,str2: string;  // same for strings
+
+
+
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// Small tools //////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-
-var
-  status: TstatusBar;     // use display('some text') or status.text[k]:='some text' to display some text in the status bar
-  i,j,k: integer;         // it is usefull to have some 'available' integer variables without needing to declare them in the functions
-  str,str1,str2: string;  // same for strings
 
 procedure display(text:string);
 begin
@@ -51,7 +103,7 @@ var
 // which can be loaded from a .csv file, and saved in a .csv file and in the .DAT file
  
 var  
-  params: TMemo;
+  fullpar2: TMemo;
   
 // Some of the local parameters are also stored in single variables
 var
@@ -102,6 +154,7 @@ type
   end;
 
 var
+  DoMenu: boolean;        // Are we using the menus?
   mpar: MenuParameterSet; // menu parameters are stored in a MenuParameterSet object
   ImageListFile: string;  // a record cannot contain strings, therefore we need a single variable for this menu parameter
   SoundListFile: string;  // idem
@@ -117,7 +170,7 @@ var
 
 // There are 2 hard-coded parameter files, one for the default parameters, the second for local parameters
 const
-  DefaultParameterFile = 'Y:\Behavior\Elphy\parameters\default.param';
+  DefaultMenuParameterFile = 'Y:\Behavior\Elphy\parameters\default.param';
   LocalParameterFile = 'D:\Elphy Programs\Manip3_LocalParameters.param';
 
 // The current parameter file name is memorized as well, and shown in the menu
@@ -146,7 +199,7 @@ begin
     DBgetString('NI Board',Dev,4);
     ShowDialogBox;
     localpar.dev := Dev;
-    localpar.ParameterFile:=DefaultParameterFile;
+    localpar.ParameterFile:=DefaultMenuParameterFile;
     localpar.rewardConversion:=0; // will be set later by user
     localpar.SaveAsObject(LocalParameterFile);
   end;
@@ -155,7 +208,7 @@ end;
 procedure SaveLocalParameters;
 begin
   if ParameterChanged then
-    localpar.ParameterFile:=DefaultParameterFile
+    localpar.ParameterFile:=DefaultMenuParameterFile
   else
     localpar.ParameterFile:=ParameterFile;
   localpar.rewardConversion:=rewardConversion;
@@ -166,15 +219,15 @@ end;
 ///////////////////////////// Copy parameters //////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-procedure ParameterSet2Memo;
+procedure FullPar2Memo;
 begin
 end;
 
-procedure Memo2ParameterSet;
+procedure Memo2FullPar;
 begin
 end; 
  
-procedure Menu2ParameterSet;
+procedure MenuPar2FullPar;
 begin
 end; 
 
@@ -299,102 +352,171 @@ end;
 
 
 ////////////////////////////////////////////////////////////////////////////////
-///////////////////////////// Default parameters ///////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-procedure DefineDefaultParameters;
-begin
-end;
-
-////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// Load/save parameters /////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
 
 // Save parameters
-procedure SaveParameters(FileName:string);
+procedure SaveDefaultMenuParameters;
 begin
-  // This function is not supposed to be reachable when not in Menu mode
-  if not(MenuMode) then ErrorDlg('Cannot edit/save parameters when not in Menu mode');
-  
+  MenuPar2TDBrecord; // copy menu parameters from mpar to mpar2
+  mpar2.SaveAsObject(DefaultMenuParameterFile);
+end;
+
+
+procedure SaveParameters(FileName:string);
+var
+  ext: string;
+begin
   // Select file
+  if MenuMode then ext:='.param' else ext:='.csv';
   if length(FileName)=0 then
   begin
-    FileName:=ParameterDir+'\*.param';
-    SaveFileDialog(FileName,'.param');
+    FileName:=ParameterDir+'\*'+ext;
+    SaveFileDialog(FileName,ext);
   end;
-
-  // Save
-  MenuPar2TDBrecord; // copy menu parameters from mpar to mpar2
-  mpar2.SaveAsObject(FileName);
-
-  // Update ParameterFile name
-  if FileName<>DefaultParameterFile then
+  
+  // Memorize file name (folder, base and full file)
+  SplitFileName(ParameterFile,ParameterDir,ParameterFileBase,str2);
+  ParameterFile:=ParameterDir+'\'+ParameterFileBase+ext;
+  SaveLocalParameters;
+  ParameterChanged:=false;
+  
+  // Save menu parameters into .param file if we are in Menu mode
+  if MenuMode then 
   begin
-    ParameterFile:=FileName;
-    SplitFileName(ParameterFile,ParameterDir,ParameterFileBase,str2);
-    ParameterFileBase:=ParameterFileBase+str2;
-    ParameterChanged:=false;
-    SaveLocalParameters;
+    MenuPar2TDBrecord; // copy menu parameters from mpar to mpar2
+    mpar2.SaveAsObject(ParameterFile);
   end;
+
+  // Save full parameters in any case
+  FullPar2Memo; // copy parameters from gpar and sparA to fullpar2
+  fullpar2.SaveToFile(ParameterDir+'\'+ParameterFileBase+'.csv');
+end;
+
+
+procedure SaveParametersDatafile; // Save parameters into data file
+begin
+  if MenuMode then 
+  begin
+    MenuPar2TDBrecord; // copy menu parameters from mpar to mpar2
+    Datafile0.AppendObject(mpar2);
+  end;
+  Datafile0.AppendObject(gpar);
+  Datafile0.AppendObject(sparA);
 end;
 
 // Load Parameters
+procedure DesignMenu;forward; // Need to declare this function that will be defined later
+
 procedure LoadParameters(FileName:string);
 var
   valid:boolean;
+  ext:string;
 begin
   // Select file
   if length(FileName)=0 then
   begin
-    FileName:=ParameterDir+'\*.param';
+    FileName:=ParameterDir+'\*';
     ChooseFile(FileName,'Choose parameter file');
   end;
 
-  // Load the TDBrecord object from file
-  mpar2.create;
-  mpar2.LoadObject(FileName);
-
-  // Update parameters -> call to TDBrecord2MenuPar
-
-  // Update ParameterFile name
+  // Memorize file name (folder, base and full file)
+  SplitFileName(FileName,str1,str2,ext);
+  if ext='.param' then
+    DoMenu:=true
+  else if ext='.csv' then
+    DoMenu:=false
+  else
+    ErrorDlg('Parameter file must be with extension .param or .csv');
+  ParameterDir:=str1;
+  ParameterFileBase:=str2;
   ParameterFile:=FileName;
-  SplitFileName(ParameterFile,str1,ParameterFileBase,str2);
-  ParameterChanged:=false;
   SaveLocalParameters;
+  ParameterChanged:=false;
+
+  // Load the parameters
+  if DoMenu then
+  begin
+    mpar2.create;
+    mpar2.LoadObject(FileName);
+    TDBrecord2MenuPar; // copy menu parameters from mpar2 to mpar
+    MenuPar2FullPar;   // Generate the full parameters (gpar+sparA)
+  end
+  else
+  begin
+    fullpar2.create;
+    fullpar2.LoadFromFile(FileName);
+    FullPar2Memo; // copy parameters from fullpar2 to gpar and sparA
+  end;
+  
+  // Redisplay the menu (because many controls do not appear if we are not in Menu mode)
+  DesignMenu; 
 end;
 
-// Save parameters into data file
-procedure SaveParametersDatafile;
-begin
-  UpdateParam;
-  Datafile0.AppendObject(mpar2);
-end;
 
-// Defaults Parameters
-procedure SaveDefaultParameters;
-begin
-  SaveParameters(DefaultParameterFile);
-end;
+////////////////////////////////////////////////////////////////////////////////
+///////////////////////////// Default parameters ///////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 procedure SetDefaultParametersAndSave;
 begin
-  LickThresholdTop:=4000;
-  LickThresholdBottom:=2500;
-  LickNumber:=1;
-  rewardVolume:=8;
-  rewardSlope:=0;
-  MaxTrialNumber:=10000;
-  NStim:=2;
-  NStimPerEp:=1;
-  NRepPerBlock:=4;
-  ProtocolType:=5;
-  RewardCriterion:=1;
-  Behavior:=TRUE;
-  Auditory:=TRUE;
-  Visual:=TRUE;
-  ValveOpen:=FALSE;
-  NFreeTrials:=20;
+  // Global parameters
+  // (general)
+  mpar2.TriggerType:=;
+  mpar2.Behavior:=TRUE;
+  mpar2.Auditory:=TRUE;
+  mpar2.Visual:=TRUE;
+  mpar2.MaxTrialNumber:=1000;
+  mpar2.NStim:=2;
+  mpar2.NStimPerEp:=;
+  mpar2.NRepPerBlock:=;
+  // (timing)
+  mpar2.StimDelay:=;
+  mpar2.VisualStimDuration:=;
+  mpar2.LickCountingDelay :=;
+  mpar2.RewardDelay:=;
+  mpar2.RandomDelay:=;
+  mpar2.PunitionDelay:=;
+  mpar2.RefractoryTime:=;
+  mpar2.TrialInterval:=;
+  // (behavior)
+  mpar2.DetectionType:=;
+  mpar2.RewardCriterion:=;
+  mpar2.LickThresholdTop:=4000;
+  mpar2.LickThresholdBottom:=2500;
+  mpar2.LickNumber:=1;
+  mpar2.NFreeTrials:=0;
+  mpar2.rewardVolume:=8;
+  mpar2.rewardSlope:=0;
+  // (visual stim)  
+  mpar2.BackgroundLuminance:=25;
+  mpar2.KeepGratingOn:=;
+  mpar2.SquareWaveGrating:=;
+  // Stim parameters
+  // (visual stim)
+  mpar2.VProtocolType:=;
+  mpar2.VSize:=;
+  mpar2.VSpeed:=;
+  mpar2.VLum:=;
+  // (audio stim)
+  mpar2.SProtocolType:=;
+  // SFreq1 and SFreq2 are not defined, because f1 and f2 are used instead
+  mpar2.SLevel:=;
+  mpar2.SDuration:=;
+  mpar2.SDelay:=;
+  // StimGen parameters
+  // (general)
+  mpar2.ProtocolType:=;
+  // (visual stim)
+  mpar2.alpha1:=;
+  mpar2.alpha2:=;
+  mpar2.ImageListFile:=ImageListFile;
+  // (audio stim)
+  mpar2.f1:=;
+  mpar2.f2:=;
+  mpar2.SoundListFile:=SoundListFile;
+  
 
   StimDelay:=100;
   VisualStimDuration:=100;
@@ -422,14 +544,13 @@ begin
   SDuration:=100;
   SDelay:=0;
 
-  SaveDefaultParameters;
+  SaveDefaultMenuParameters;
 end;
-
-
 
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// Settings /////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+
 
 // Settings = experiment parameters + local parameters + other variables
 procedure InitSettings;
@@ -443,74 +564,11 @@ begin
   // experiment parameters
   if localpar.fieldExists('ParameterFile') then
     LoadParameters(localpar.ParameterFile)
-  else if FileExists(DefaultParameterFile) then
-    LoadParameters(DefaultParameterFile)
+  else if FileExists(DefaultMenuParameterFile) then
+    LoadParameters(DefaultMenuParameterFile);
   else
     SetDefaultParametersAndSave;
 end;
-
-procedure SaveCurrentSettings;
-begin
-  SaveDefaultParameters;
-end;
-
-
-{$EDIT OtherVariables}
-////////////////////////////////////////////////////////////////////////////////
-///////////////////////////// Other variables //////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-const
-  Sound_Sampling_Frequency= 192000;    // Hz
-  //Lick_Sampling_Frequency = 1000;      // Hz
-var
-  plot: TXYplot;
-  bar, dumBar: Tbar; // dumBar and dumStim will be displayed anyway: they force the duration of the VisualStimulation to a certain length
-  Stim, dumStim: TonOff;
-  gratings: array [1..2] of TLGrating;
-  shiftgrat: array [1..2] of TphaseTranslation;
-  bitmap: TVSbitmap;
-  circle: Tdisk;
-  VParam: Tvector;
-  SParam: Tvector;
-  SPCopy: Tvector;
-  VPCopy: Tvector;
-  CRecord: Tvector;
-  TRecord: Tvector;
-  VRecord: Tvector;
-  SRecord: Tvector;
-  WaitVect: Tvector;
-  LickRecord: Tvector;
-  vfilt: Tvector;
-  NIanalog: TNIinterface;
-  ParamWin: Tdialog;
-  Ni: TNIinterface;
-  FileList,ProtocolList,DetectionList,TriggerList,VisualProtocols,AuditoryProtocols,RewardCriterionList: Tmemo;
-  SoundList,ImageList: Tmemo;
-  FileNameHandle: integer;
-  Sounds: array [1..100] of TVector;
-  LoadedSounds: array [1..100] of TVector;
-  detector: Tdetector;
-  Vdetect: Tvector;
-  level:TDBRecord; 
-
-  
-  vect,kernel: TVector;
-  Go:integer;
-  res: integer;
-  gh,Vbase:real;
-  time0:integer;
-  cnt, TrialType: integer;
-  
-  ValveOpen: boolean;
-  rewardTotal: real;
-  activeReward: boolean;
-  
-  
-
-
-     
-
 
 
 
@@ -570,30 +628,9 @@ end;
 ///////////////////////////// GUI / Dialog boxes ///////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-// Build the GUI
-procedure  DesignInterface;
+// Menu window
+procedure DesignMenu
 begin
-   deleteallpages('Behavior');
-   Go:=0;
-
-  // Create the Windows
-  if PageIndex('Behavior') = 0  then  Addpage('Behavior');
-  with MGpage['Behavior'] do
-  begin
-   color := rgb(250,250,250);
-   destroyAllwindows;
-   DefineWindow(0,0,pagewidth-400,floor(pageheight/2));
-   DefineWindow(0,floor(pageheight/2),pagewidth-400,floor(pageheight*3/4));
-   DefineWindow(0,floor(pageheight*3/4),pagewidth-400,pageheight);
-   DefineWindow(pagewidth-400,0,pagewidth,pageheight);
-   addobject(1,v[1]);   vfilt.create;   addobject(1,vfilt);
-   addobject(2,LickRecord);
-   addobject(3,CRecord);
-   PageFont := true;
-   scalecolor := rgb(10,10,10);
-  end;
-
-  // Create the parameter window
   with ParamWin do
   begin
     create;
@@ -756,7 +793,33 @@ begin
 
   // Display the parameters window
   MGpage['Behavior'].adddialog(4,ParamWin);
+end;
 
+// Build the GUI
+procedure  DesignInterface;
+begin
+   deleteallpages('Behavior');
+   Go:=0;
+
+  // Create the Windows
+  if PageIndex('Behavior') = 0  then  Addpage('Behavior');
+  with MGpage['Behavior'] do
+  begin
+   color := rgb(250,250,250);
+   destroyAllwindows;
+   DefineWindow(0,0,pagewidth-400,floor(pageheight/2));
+   DefineWindow(0,floor(pageheight/2),pagewidth-400,floor(pageheight*3/4));
+   DefineWindow(0,floor(pageheight*3/4),pagewidth-400,pageheight);
+   DefineWindow(pagewidth-400,0,pagewidth,pageheight);
+   addobject(1,v[1]);   vfilt.create;   addobject(1,vfilt);
+   addobject(2,LickRecord);
+   addobject(3,CRecord);
+   PageFont := true;
+   scalecolor := rgb(10,10,10);
+  end;
+
+  // Create the parameter window
+  DesignMenu
 end;
 
 
@@ -1901,8 +1964,8 @@ procedure RunTheExp;
 begin
   // Check current settings
   if not CheckCurrentSettings then break;
-  // Save current settings
-  SaveCurrentSettings;
+  // Save menu parameters to default
+  if DoMenu then SaveDefaultMenuParameters;
   // Re-init some variables
   InitRewardCount;
   // Erase status information
@@ -1918,7 +1981,7 @@ var
   i:integer;
   tmp:integer;
 begin
-  SaveCurrentSettings;
+  if DoMenu then SaveDefaultMenuParameters; 
   Initialize_AcqAndTriggs;
   initVisual;
   VisualStim.OnStartAnimate1:=NIL;
@@ -1941,7 +2004,7 @@ end;
 
 procedure TestSounds;
 begin
-  SaveCurrentSettings;
+  if DoMenu then SaveDefaultMenuParameters; 
   SParam.create(t_single,1,NStim);
   for i:= 1 to NStim do SParam[i]:=(i-1)/(NStim-1);
   Initialize_AcqAndTriggs;
