@@ -507,6 +507,7 @@ begin
     getString('Image list file',ImageListFile,30);
     getCommandA('Choose images', Go,301);
     getCommandA('Test visual stim', Go,302);
+    getCommandA('Calibration image for DLP', Go,303); //zp 140507
   end;
    
   // Auditory parameters
@@ -1543,6 +1544,107 @@ begin
   StimDelay:=tmp;  
 end;  
 
+//zp 07052014 
+procedure CalibDLPImage;
+var
+  x1,y1,s1,x2,y2,s2,x3,y3,s3,k,tmp:integer; 
+begin
+
+  SaveCurrentSettings;
+  Initialize_AcqAndTriggs;
+  initVisual;
+  VisualStim.OnStartAnimate1:=NIL;
+  VisualStim.OnStartAnimate2:=NIL;
+
+  //////////  
+s1:=4; s2:=8; s3:=12; //size of crosses
+x1:=0; y1:=0; // position of first (smallest) cross
+x2:=-10; y2:=10; //position of second cross
+x3:=10; y3:=10; //position of third (biggest) cross
+  
+  // create the contour (TXYplot object) 
+  with plot do
+  begin
+    create;   
+      
+       AddPolyline;
+      with polylines[1] do 
+      begin
+        for k:=0 to s1 do
+          addPoint(x1,y1-s1/2+k); 
+      end;  
+    
+      AddPolyline; 
+      with polylines[2] do  
+      begin
+        for k:=0 to s1 do
+          addPoint(x1-s1/2+k,y1);
+      end;  
+      
+       AddPolyline;  
+      with polylines[3] do 
+      begin
+        for k:=0 to s2 do
+          addPoint(x2,y2-s2/2+k);
+      end; 
+      
+      AddPolyline;  
+      with polylines[4] do 
+      begin
+        for k:=0 to s2 do
+          addPoint(x2-s2/2+k,y2);
+      end;  
+      
+             AddPolyline;  
+      with polylines[5] do 
+      begin
+        for k:=0 to s3 do
+          addPoint(x3,y3-s3/2+k);
+      end; 
+      
+      AddPolyline;  
+      with polylines[6] do 
+      begin
+        for k:=0 to s3 do
+          addPoint(x3-s3/2+k,y3);
+      end;
+    
+  end;    
+  
+  // create the bar (Tbar object) and assign the contour to it
+  with bar do
+  begin
+    create;
+    dx:=30;
+    dy:=30;
+    Lum:=VLum;
+    setContour(plot);
+    UseContour:=true;
+  end;   
+    
+  // create stim (TOnOff object)and assign the bar to it
+  tmp:=StimDelay;
+  StimDelay:=300;
+  
+  with stim do
+  begin
+    create;
+    StartTime:=StimDelay/1000; // secondes
+    DtON:= VisualStimDuration/100; // makes this 10x longer than the value in ms set for visual stim duration
+    DtOff:= 0;
+    setSyncPulse(0); 
+    setVisualObject(bar);
+  end;  
+  
+     //////////////
+  StimDelay:=tmp;
+
+  VisualStim.animate;
+  if Visualstim.StopStim then break;
+
+
+end;
+
 procedure TestSounds;
 begin
   SaveCurrentSettings;
@@ -1595,6 +1697,7 @@ begin
     // Visual parameters
     301: ChooseImages;
     302: TestVisualStim;
+    303: CalibDLPImage;
     // Sound parameters
     401: LoadSounds;
     402: TestSounds;
