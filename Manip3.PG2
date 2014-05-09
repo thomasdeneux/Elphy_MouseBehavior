@@ -489,6 +489,7 @@ begin
     addLine('Luminance Circles');
     addLine('Gratings & Orientation morphing');
     addLine('Squares at 2 positions');
+    addLine('Disks at 2 positions');
   end;
   with ParamWin do
   begin
@@ -609,7 +610,7 @@ begin
 end;  
 
 // Image display
-// ZP for DLP photostimulation
+// ZP for DLP photostimulation (squares)
 procedure MakeOneofTwoRectangles(ObjValue:real);
 var
 xr,yr:real;
@@ -620,7 +621,7 @@ begin
   if ObjValue=2 then begin xr:=alpha2; yr:=beta2; end;  
  
    
-  // create the bar (Tbar object) and assign the contour to it
+  // create the bar (Tbar object) 
   with bar do
   begin
     create;
@@ -640,6 +641,42 @@ begin
     DtOff:= 0;
     setSyncPulse(0); 
     setVisualObject(bar);
+  end; 
+
+
+end;
+
+// ZP for DLP photostimulation (disks)
+procedure MakeOneofTwoDisks(ObjValue:real);
+var
+xr,yr:real;
+begin
+
+  // choose coords alpha1,beta1 or alpha2,beta2 depending on value of ObjValue:
+  if ObjValue=1 then begin xr:=alpha1; yr:=beta1; end; 
+  if ObjValue=2 then begin xr:=alpha2; yr:=beta2; end;  
+ 
+   
+  // create the circle (Tdisk object) 
+  with circle do
+  begin
+    create;
+    dx:=VSize;
+    dy:=VSize;
+    x:=xr;
+    y:=yr;
+    Lum:=VLum;
+  end; 
+  
+  // create stim (TOnOff object)and assign the circle to it
+  with stim do
+  begin
+    create;
+    StartTime:=StimDelay/1000; // secondes
+    DtON:= VisualStimDuration/1000;
+    DtOff:= 0;
+    setSyncPulse(0); 
+    setVisualObject(circle);
   end; 
 
 
@@ -816,7 +853,8 @@ begin
     3: MakeBitmap(TType);
     4: MakeLuminanceCircle(VParam[TType]);
     5: MakeShiftingGratings(VParam[TType],'orientation');
-    6: MakeOneofTwoRectangles(TType);
+    6: MakeOneofTwoRectangles(TType);    //actually squares
+    7: MakeOneofTwoDisks(TType);
   end;
 end;
 
