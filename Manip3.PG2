@@ -1082,8 +1082,8 @@ begin
         3: begin stimtable[i].SFreq:=Exp(Ln(f1)*(1-ObjValueS)+Ln(f2)*ObjValueS); stimtable[i].SFreq2:=Exp(Ln(f2)*(1-ObjValueS)+Ln(f1)*ObjValueS); stimtable[i].SAlpha:=ObjValueS; end;
         // Ramp & amplitude morphing
         4: begin stimtable[i].SFreq:=f1; stimtable[i].SFreq2:=f2; stimtable[i].SAlpha:=ObjValueS; end;
-        // Loaded files
-        5: stimtable[i].ImageIdx:=i;
+        // Loaded sounds
+        5: stimtable[i].SoundIdx:=j;
         // Two loaded files & amplitude morphing
         6: stimtable[i].SAlpha:=ObjValueS;  
         // Amplitude ramp (logarithmic scale!)
@@ -1186,11 +1186,12 @@ begin
       // Auditory parameters
       selectPanel('1.2.5');
       getstringList1A('Stimulus protocol',AuditoryProtocols,SProtocolType,502);
-      getReal('S+ parameter',f1,5,1);
-      getReal('S- parameter',f2,5,1);
-      getReal('Sound duration',SDuration,5,1);
-      getReal('Sound delay',SDelay,5,1);
-      getReal('Sound amplitude',SLevel,5,1);
+      getReal('S+ parameter',f1,5,3);
+      getReal('S- parameter',f2,5,3);
+      getReal('Duration',SDuration,5,1);
+      getReal('Delay',SDelay,5,1);
+      getReal('Frequency',SFreq,5,1);
+      getReal('Amplitude',SLevel,5,1);
       getString('Sound list file',SoundListFile,30);
       getCommandA('Load sounds', Go,401);
       getCommandA('Test sounds', Go,402);
@@ -1300,7 +1301,7 @@ begin
       ParameterChanged:=true;
       // Warning message: not twisting loaded sounds
       if (ProtocolType=2) AND (SProtocolType=5) AND ((N=501) OR (N=502)) then 
-        MessageBox('Warning: loaded sounds are NOT twisted for "double unimodal ambiguities" protocol.');
+        MessageBox('Warning: loaded sounds will be twisted for "double unimodal ambiguities" protocol.');
     end;
   end;
   
@@ -1661,18 +1662,14 @@ var
   i:integer;
   tmp:integer;
 begin
-display('hello');
   if DoMenu then SaveDefaultMenuParameters; 
   Initialize_AcqAndTriggs;
-display('kk');
   initVisual;
-display('ddd');
   VisualStim.OnStartAnimate1:=NIL;
   VisualStim.OnStartAnimate2:=NIL;
 
   tmp:=StimDelay;
   StimDelay:=300;
-display('nstim='+Istr(nstim));
   for i:= 1 to NStim do 
   begin
     display(Istr(i));
@@ -1776,32 +1773,27 @@ begin
         // create sound
         nS := Floor((SDuration/1000)*Sound_Sampling_Frequency);
         Sounds[i].create(T_double,0,nS-1);
-        // only one sound <-> second sound is zero
-        if (SStimType=1) then SAlpha:=0; 
-        if (SStimType=1) then SFreq2:=SFreq; // this line is actually not necessary 
+        // fill it
+        if (SStimType=1) then SAlpha:=0; // only one sound <-> second sound is zero
+        for k:=Sounds[i].Istart to Sounds[i].Iend do
         begin
           time := k / Sound_Sampling_Frequency;
-          Sounds[i][k] := 5000*SLevel*(1-SAlpha)*Sin(2*PI*SFreq*time + PI*time*time*frac);
-          if (SAlpha>0) then Sounds[i][k] := Sounds[i][k] + 5000*SLevel*SAlpha*Sin(2*PI*SFreq2*time - PI*time*time*frac); 
+          Sounds[i][k] := 5000*SLevel*(1-SAlpha)*Sin(2*PI*SFreq*time);
+          if (SAlpha>0) then Sounds[i][k] := Sounds[i][k] + 5000*SLevel*SAlpha*Sin(2*PI*SFreq2); 
         end;
       end;
-      1..4: // 1 or 2 tone(s) or ramp(s) -> generic case is 2 frequency ramps
+      3..4: // 1 or 2 frequency ramp(s)
       begin
         // create sound
         nS := Floor((SDuration/1000)*Sound_Sampling_Frequency);
-        Sounds[i].create(T_double,0,nS-1);
-        // only one sound <-> second sound is zero
-        if (SStimType=1) OR (SStimType=3) then SAlpha:=0; 
-        if (SStimType=1) then SFreq2:=SFreq; // this line is actually not necessary 
+        Sounds[i].create(T_double,0,nS-1);         
+        if (SStimType=3) then SAlpha:=0; // only one sound <-> second sound is zero
         // Frequency ramp generation:
         // instantaneous frequency at time t = f1 + t/T*(f2-f1);
         // phase at time t = 2Pi * integral_0-t frequency(t)*t
         //                 = 2Pi*f1*t + Pi*t^2/T*(f2-f1)
         // with t = i/Sound_Sampling_Frequency
-        if (SStimType>=3) then
-          frac := (SFreq2-SFreq)/(nS/Sound_Sampling_Frequency)
-        else
-          frac := 0;
+        frac := (SFreq2-SFreq)/(nS/Sound_Sampling_Frequency);
         for k:=Sounds[i].Istart to Sounds[i].Iend do
         begin
           time := k / Sound_Sampling_Frequency;
@@ -1812,8 +1804,8 @@ begin
       5: // loaded files
       begin
         Sounds[i].create;
-        VCopy(LoadedSounds[i],Sounds[i]);
-        SDuration := LoadedSounds[i].icount/Sound_Sampling_Frequency*1000;
+        VCopy(LoadedSounds[SoundIdx],Sounds[i]);
+        SDuration := Sounds[i].icount/Sound_Sampling_Frequency*1000;
       end;
       6: // two loaded files and amplitude morphing
       begin
@@ -1826,7 +1818,19 @@ begin
       end;
       7: // amplitude ramp
       begin
-        i:=0;
+        // create sound
+        nS := Floor((SDuration/1000)*Sound_Sampling_Frequency);
+        Sounds[i].create(T_double,0,nS-1);
+        // fill it
+        frac:=(SLevel2-SLevel)/(SDuration/1000);
+        for k:=Sounds[i].Istart to Sounds[i].Iend do
+        begin
+          time := k / Sound_Sampling_Frequency;
+          if SFreq>0 then
+            Sounds[i][k] := 5000*(SLevel+frac*time)*Sin(2*PI*SFreq*time)
+          else
+            Sounds[i][k] := 5000*(SLevel+frac*time)*Random;
+        end;
       end;
     end;
 
@@ -1892,7 +1896,11 @@ begin
   begin
     if i>1 then delay(round(SDuration+300));
     display(Istr(i));
-    ICond:=i;
+    if ProtocolType=2 then 
+      // untwist twisted sounds for "Double unimodal ambiguities" protocol!!! 
+      if i<=NStim/2 then ICond:=Floor(NStim/2)+1-i else ICond:=NStim+1-(i-Floor(NStim/2)) 
+    else
+      ICond:=i;
     Record2Par(StimTable[ICond]);
     setAudioStim(TRUE);
     if Visualstim.StopStim then break;
@@ -2204,7 +2212,7 @@ begin
     end;
   end;
   MakeDumBar(EpisodeDuration);
-  if DoMask then MakeMask;
+  if DoMask then MakeMask else for i:=1 to 2 do maskBar[i].free;
 
   // Set input parameters
   with Acquisition do
