@@ -1135,7 +1135,6 @@ begin
       // General parameters menu
       selectPanel('1.2.1');
       getstringList1A('Protocol Type',ProtocolList,ProtocolType,501);
-      getstringList1('Reward  Criterion',RewardCriterionList,RewardCriterion);
       getstringList1('Trigger',TriggerList,TriggerType);
       getInteger('# Stimuli',NStim,5);
       getInteger('# Stim per Episode',NStimPerEp,5);
@@ -1160,6 +1159,7 @@ begin
       // Behavior
       selectPanel('1.2.3');
       getstringList1('Detection Type',DetectionList,DetectionType);
+      getstringList1('Reward  Criterion',RewardCriterionList,RewardCriterion);
       getInteger('Minimal lick number',LickNumber,5);
       getReal('Sensor top threshold (mV)',LickThresholdTop,5,1);
       getReal('Sensor bottom threshold (mV)',LickThresholdBottom,5,1);
