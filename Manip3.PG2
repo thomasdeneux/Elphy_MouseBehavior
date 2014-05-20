@@ -1900,3 +1900,675 @@ begin
   VisualStim.StopStim:=FALSE;
 end;
 
+{$EDIT Reward}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////// Reward routines /////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+// Opens transiently the water valve
+procedure OpenValve(volume: real);
+begin
+  with NIanalog do
+  begin
+    create(Dev);
+    setAnalogOutput(1,1,volume*rewardConversion,false);
+    vector.fill(5000);
+    vector[vector.Iend]:=0;
+    start('');
+    rewardTotal:=rewardTotal+volume;
+    ParamWin.update;
+    delay(Floor(volume*rewardConversion)+100);
+  end;
+
+end;
+
+// Opens or close the water valve
+procedure OpenCloseValve;
+begin
+  with NIanalog do
+  begin
+    create(Dev);
+    setAnalogOutput(1,1,10,false);
+    vector.fill(5000*Ord(ValveOpen));
+    start('');
+    delay(100);
+  end;
+
+end;
+
+
+// Procedure to check if reward will be given and call the OpenValve procedure if necessary
+procedure RewardFunction;
+var
+  det: Tdetect; // We use a Tdetect object for the lick detection
+  w,w1,w2: integer;
+begin
+  Case DetectionType of
+    // Head-fixed touch
+    1:
+    begin
+     with det do
+      begin
+       create;
+       installSource(v1);
+       Xstart:=StimDelay+LickCountingDelay;
+       Xend:=StimDelay+VisualStimDuration+RewardDelay;
+       mode:= sm_crossDw;
+       Length:= 50;
+       height:= LickThresholdTop;
+       execute;
+     end;
+     w1:= det.count;
+
+     with det do
+      begin
+       height:= LickThresholdBottom;
+       execute;
+      end;
+     w2:= det.count;
+     if (w1<=w2) then w:=w1 else w:=w2;
+    end;
+    
+    // Head-fixed licking
+    2:
+    begin
+    v1.CpX:=1;
+    v1.CpY:=1;
+    vfilt.CpX:=v1.CpX;
+    vfilt.CpY:=v1.CpY;
+    Filter(1,FALSE,2,10,v1,vfilt,v1.Xstart,v1.Xend);
+    vfilt.refresh;
+    with det do
+      begin
+       create;
+       installSource(vfilt);
+       Xstart:=StimDelay+LickCountingDelay;
+       Xend:=StimDelay+VisualStimDuration+RewardDelay;
+       mode:= sm_min;
+       height:= -LickThresholdBottom;
+       execute;
+      end;
+      w:= det.count;
+      Vbase:=vfilt.Maxi0;
+     end;
+
+    // Freely moving
+    3:
+     begin
+      vfilt.create;
+      vcopy1(v1,vfilt);
+      vfilt.Threshold1(LickThresholdTop);
+      w:=100-floor(100*vfilt.Mean(StimDelay+VisualStimDuration,StimDelay+VisualStimDuration+RewardDelay));
+     end;
+  end;
+
+  // Give the reward if correct answer to S+ (or free S+ trial)
+  if (TaskType=1) AND activeReward AND ((w>= LickNumber) OR (cnt<=NFreeTrials)) then 
+    OpenValve(Floor(rewardVolume+max(0,w-LickNumber)*rewardSlope));
+     
+  // Record the number of licks
+  status.text[5]:=Istr(w)+' lick(s)';
+  LickRecord[cnt]:=w;
+  
+  // Record whether the trial was correct
+  case TaskType of
+    1: CRecord[cnt] := Ord(w>=LickNumber);
+    2: CRecord[cnt] := Ord(w< LickNumber);
+  end;
+end;
+
+{$EDIT Acquisition}
+////////////////////////////////////////////////////////////////////////////////
+///////////////////////////// Detector routines ////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+// CASE 1 : TRIGGER AN IMMEDIATE REWARD
+
+
+procedure ImmediateRewardFunction(n:integer);
+begin
+  if ContinuousRec then
+    // continuous run with immediate rewards
+    OpenValve(rewardVolume)
+  else
+    // reward if S+ and correct response
+    if (TaskType=1) AND (Vdetect[Vdetect.Iend]>StimDelay+LickCountingDelay) AND (activeReward) then
+    begin
+      OpenValve(rewardVolume);
+      activeReward:=FALSE;
+    end;
+end;
+
+procedure InitDetectorReward;
+begin
+  Vdetect.create;
+  activeReward:=TRUE;
+  with detector do
+  begin
+    create;
+    // detector events are initiated by threshold crossing:
+    // arguments 3 and 4 tell whether up-crossings and down-crossings generate an event
+    initCrossings(v1,Vdetect, true,false, LickThresholdTop+Vbase,LickThresholdBottom+Vbase, 100, 0,false);
+    AddEvent(ImmediateRewardFunction,0);
+  end;
+end;
+
+// CASE 2 : RYTHMICALLY UPDATE THE SOUND TO BE PLAYED
+
+procedure SelectTrialType;forward;
+
+procedure DetectorEventSoundUpdate(n:integer);
+begin
+  if n<NStimPerEp then
+  begin
+    SelectTrialType;
+    setAudioStim(FALSE);
+  end;
+end;
+
+procedure InitDetectorSoundUpdate;
+begin
+  with detector do
+  begin
+    create;
+    // detector events are initiated by a timer
+    initTimer(v1,TrialInterval,StimDelay+MaxSoundDuration+50);
+    AddEvent(DetectorEventSoundUpdate,0);
+  end;
+end;
+
+// THE LINES BELOW ARE NECESSARY FOR THE DETECTOR TO ACT WHEN IN CONTINUOUS ACQUISITION MODE
+
+ProcessCont
+detector.update(v1.Iend);
+
+////////////////////////////////////////////////////////////////////////////////
+///////////////////////////// Trigger routines /////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+// Wait for triggers
+procedure WaitForFork;
+var
+  LickV,thresh,del:real;
+  NREF,NC:integer;
+  ref:boolean;
+  Address:string;
+begin
+  display('wait for fork');
+  Address:=Dev+'/AI1';
+  thresh:=2;
+  del:=20;
+  NC:=0;
+  ref:=FALSE;
+  NREF:=floor(RefractoryTime/del);
+  repeat
+    Ni.Ain(Address,2,LickV);
+    if LickV>=thresh then NC:=NC+1;
+    if NC>=NREF then ref:=TRUE;
+    if LickV<thresh then NC:=0;
+    delay(floor(del));
+
+  until ((LickV<thresh) AND (ref)) OR Visualstim.StopStim;
+  display('Trial');
+end;
+
+procedure WaitForNoLick;
+var
+  LickV,thresh,del,RefreshTime:real;
+  NREF,NREFRE,NC,NC0:integer;
+  ref:boolean;
+  Address:string;
+begin
+
+  display('wait for no lick');
+  Address:=Dev+'/AI0';
+  thresh:=(LickThresholdBottom+Vbase)/1000;
+  status.text[6]:='Vbase=' + Rstr(Vbase,5,2);
+  del:=10;
+  NC:=0;  NC0:=0;
+  ref:=FALSE;
+  NREF:=floor(RefractoryTime/del);
+  NREFRE:=floor(1000/del);
+  WaitVect.create(5,1,NREFRE);
+  repeat
+    Ni.Ain(Address,1,LickV);
+    NC0:=NC0+1; WaitVect[NC0]:=LickV;
+    if LickV>=thresh then NC:=NC+1;
+    if NC>=NREF then ref:=TRUE;
+    if LickV<thresh then NC:=0;
+
+    if NC0>=NREFRE then
+      begin
+          Vbase:=WaitVect.Maxi0*1000;
+          thresh:=(LickThresholdBottom+Vbase)/1000;
+          NC0:=0;
+      end;
+
+    delay(floor(del));
+   // status.text[3]:=Istr(NC);
+   // status.text[4]:=Rstr(LickV,5,2);
+   // status.text[6]:=Rstr(thresh,5,2);
+  until ((LickV>thresh) AND (ref)) OR Visualstim.StopStim;
+  display('Trial');
+end;
+
+procedure WaitForMicroscope;
+var
+  dig,ok:integer;
+  Address:string;
+begin
+  display('wait for microscope');
+  Address:=Dev+'/PORT1/LINE2';
+  // first get a 0 bit (make sure previous acquisition has finished)
+  repeat
+    ok:=Ni.Din(Address,dig);
+    visualStim.TestStopStim;
+  until (dig=0) OR Visualstim.StopStim;
+  // then get a 1 bit (trigger)
+  repeat
+    ok:=Ni.Din(Address,dig);
+    visualStim.TestStopStim;
+  until (dig>0) OR Visualstim.StopStim;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////// Acquisition /////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+
+// Procedure for Episodes recording
+procedure Initialize_AcqAndTriggs;
+var
+  SoundStart, EpisodeDuration: integer;
+begin
+
+  // Set general parameters of acquisition
+  if (not Visual) and (NStimPerEp>1) then
+    EpisodeDuration := StimDelay+NStimPerEp*TrialInterval
+  else
+    EpisodeDuration := StimDelay+VisualStimDuration+RewardDelay; // seconds
+  with VisualStim do
+  begin
+    // Period MUST BE 1ms because this is assumed for several actions
+    // (for example, for setting the output that will trigger the sound)
+    PeriodPerChannel:=1; // unit: ms
+    // Erase all displays
+    disableStims;
+    // Handle triggers
+    VisualStim.OnStartAnimate1:=NIL;
+    VisualStim.OnStartAnimate2:=NIL;
+    case TriggerType of
+      2: VisualStim.OnStartAnimate1:=WaitForFork;
+      3: VisualStim.OnStartAnimate1:=WaitForMicroscope;
+      4: VisualStim.OnStartAnimate1:=WaitForNoLick;
+    end;
+  end;
+  MakeDumBar(EpisodeDuration);
+  if DoMask then MakeMask;
+
+  // Set input parameters
+  with Acquisition do
+  begin
+    Fcontinuous:=false;
+    if TRUE then
+    begin
+      ChannelCount:=1; //2;
+      with Channels[1] do
+      begin
+        if Behavior then
+          case DetectionType of
+            1: PhysNum:=1;
+            2: PhysNum:=0;
+            3: PhysNum:=1;
+          end
+        else
+          PhysNum:=1; // nothing to record -> record audio stim, just for fun
+        UnitY:='mV';
+        setScale(0,32767,0,10000);
+        DownSamplingFactor:= 1;
+      end;
+      Fstimulate:=true;
+    end
+    else
+    begin
+      ChannelCount:=0;
+    end;
+  end;
+
+  // Set output parameters
+  with Stimulator do
+  begin
+    BufferCount:=1;
+    ChannelCount:=1;
+    setByProg:=true;
+
+    // Trigger for sound
+    with Channels[1] do
+    begin
+      ChannelType:=TO_digiBit;
+      PhysNum:=0;
+      BitNum:=7;
+    end;
+
+    // Init visual stimulation - this also sets acquisition
+    // It is important that this commands occurs here, after we have declared
+    // Channels[1], but before we set the content of vector[1] (since 'InitAcqParams'
+    // sets the appropriate length of vector[1])
+    VisualStim.InitAcqParams; 
+
+    // Fill the output vector of the sound trigger
+    vector[1].fill(0);
+    for i:=1 to NStimPerEp do
+    begin
+      soundStart := StimDelay+(i-1)*TrialInterval+Round(SDelay);
+      vector[1].fill1(1,soundStart,soundStart+10);  // Ce pulse est envoyé sur PFI1, il déclenche le signal analogique
+    end;
+
+  end;
+
+  // Set display range of acquisition
+  v1.Xmin:=0;
+  v1.Xmax:=EpisodeDuration;
+  if Behavior then
+    case DetectionType of
+      1: begin v1.Ymin:=0; v1.Ymax:=5500; end;
+      2: begin v1.Ymin:=-10500; v1.Ymax:=10500; end;
+      3: begin v1.Ymin:=0; v1.Ymax:=5500; end;
+    end
+  else
+    begin v1.Ymin:=-500; v1.Ymax:=500; end;
+
+end;
+
+
+{$EDIT Experiment}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////// Program opening /////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+// The procedure that intializes the program
+procedure Opening_Procedure;
+begin         
+  // randomize seed for RNG
+  Randomize; 
+  
+  // Init experiment parameters and other variables
+  InitSettings;
+
+  // Initialize data vector
+  with LickRecord do
+  begin
+   create(t_smallint,0,1);
+   Ymin:=0;
+   Ymax:=20;
+  end;
+  with CRecord do
+  begin
+   create(t_smallint,0,1);
+   Ymin:=-1;
+   Ymax:=2;
+  end;
+  TRecord.create(t_smallint,1,1);
+
+  // Parameters interface
+  DesignInterface;
+
+  // Status bar
+  with status do
+  begin
+    create(7);
+    setPanelProp(1,400,2,1,'');
+    setPanelProp(2,120,2,1,'');
+    setPanelProp(3,200,2,1,'');
+    setPanelProp(4,200,2,1,'');
+    setPanelProp(5,120,2,1,'');
+    setPanelProp(6,120,2,1,'');
+  end;
+  hideSystemStatusBar;
+
+  // Set a gray screen
+  StimScreen.BackGroundLum:=BackgroundLuminance;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+///////////////////////////// Episode //////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+// Randomization function  XXX - COMPUTE ALL FROM THE BEGINNING AND SAVE!
+procedure SelectTrialType;
+var
+   i,j,idx,nblock,tmp:integer;
+begin
+  // increment stim count (starts at 1 for the first trial)
+  inc(cnt);
+  // number of conditions in a block
+  nblock := NStim*NRepPerBlock;
+  idx := (cnt-1) mod nblock;
+  // create/re-shuffle vector?
+  if idx=0 then
+  begin
+    if cnt=1 then
+    begin
+      // create vector
+      RandomizationVector.create(t_longint,0,nblock-1);
+      for i:=1 to NStim do
+        for j:=0 to NRepPerBlock-1 do
+          RandomizationVector[(i-1)*NRepPerBlock+j] := i;
+    end;
+    // shuffle
+    for i:=0 to nblock-1 do
+    begin
+      j := floor(nblock*Random);
+      tmp := RandomizationVector.JValue[i];
+      RandomizationVector[i] := RandomizationVector.JValue[j];
+      RandomizationVector[j] := tmp;
+    end;
+  end;
+  // get trial type
+  ICond:=RandomizationVector.JValue[idx];
+  // update stim parameters
+  Record2Par(StimTable[ICond]);
+  // save in TRecord vector and display
+  TRecord[cnt]:=ICond;
+  status.text[2] := 'Stim '+Istr(cnt)+' -> '+Istr(ICond);
+end;
+
+// Procedure defining what to do in each episode
+procedure DoEpisode;
+var
+  timestart,dd:integer;
+begin
+  // Choose the type of trial
+  SelectTrialType; // This sets ICond, increments cnt, updates TRecord, and updates stim parameters
+  
+  // Init the detector if necessary?
+  if Behavior and (RewardCriterion=2) then
+  begin
+    InitDetectorReward; // detector for immediate reward
+    VisualStim.InstallDetector(detector);
+  end
+  else if NStimPerEp>1 then
+  begin
+    InitDetectorSoundUpdate; // detector for multiple sounds per episode
+    VisualStim.InstallDetector(detector);
+  end
+  else detector.free;
+  activeReward:=TRUE;
+
+  // Prepare the stimulation
+  display('set visual stim');
+  if Visual then setVisualStim;           // Refresh the visual stimulation
+  display('set audio stim');
+  if Auditory then setAudioStim(FALSE);      // Refresh and load the auditory stimulation
+
+  // Start acquisition
+  display('Visualstim.animate');
+  timestart := timeGetTime;
+  VisualStim.animate;       // Launch the visual stimulation immediately
+
+  // Reward
+  if Behavior then
+  begin
+    RewardFunction;         // Check the number of licks and deliver the reward
+    activeReward:=TRUE;
+    LickRecord.refresh;
+    CRecord.refresh;
+  end;
+
+  // Add a delay before the next episode
+  dd := TrialInterval;               // Minimal duration of trial
+  dd := (timestart+dd)-timeGetTime;  // Remaining time to wait
+  if dd>0 then
+  begin
+    display('wait for some delay');
+    delay(dd);
+  end;
+  if Behavior AND (TaskType=2) AND (CRecord[cnt]=0) AND (PunitionDelay>0) then
+  begin
+    display('punition delay');    // punishment for false positive
+    delay(PunitionDelay);
+    dd := dd+PunitionDelay;
+  end;
+  if RandomDelay>0 then
+  begin
+    display('random delay');
+    delay(Floor(Random*RandomDelay));
+  end;
+  display('');
+  
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////// Experiment routines /////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+
+procedure RunEpisodes;
+var
+i:integer;
+MatName:string;
+tmp:real;
+Address:string;
+
+
+begin
+if VisualStim.OpenDataFile then
+  begin
+
+    // Initialize acquisition and triggers
+    Initialize_AcqAndTriggs;
+
+    // Initialize trial counter
+    cnt:=0; // cnt is incremented at each call to SelectTrialType
+    
+    // Set storage vectors
+    TRecord.modify(2,1,MaxTrialNumber);     TRecord.Xmax:=MaxTrialNumber;
+    CRecord.modify(2,1,MaxTrialNumber);     CRecord.Xmax:=MaxTrialNumber;
+    LickRecord.modify(2,1,MaxTrialNumber);  LickRecord.Xmax:=MaxTrialNumber;
+
+    // Pre-compute sounds
+    if Visual then initVisual;
+    if Auditory then initSounds;
+
+    // Estimate baseline voltage
+    if Behavior then
+      begin
+       Address:=Dev+'/AI0';
+       Ni.Ain(Address,1,tmp);
+       Vbase:=tmp*1000;
+       delay(50);
+       Ni.Ain(Address,1,tmp);
+       if(tmp*1000>Vbase) then Vbase:=tmp*1000;
+       status.text[6]:='Vbase=' + Rstr(Vbase,5,2);
+    end;
+
+    // Episodes loop
+    repeat
+      DoEpisode;                        // Launch episode
+    until (cnt=MaxTrialNumber) or Visualstim.StopStim;  // Note that cnt is incremented in SelectTrialType function
+    VisualStim.StopStim:=FALSE;
+
+    // Save parameters and computed vectors
+    SaveParametersDatafile;
+    DataFile0.AppendObject(TRecord);
+    DataFile0.AppendObject(CRecord);
+    DataFile0.AppendObject(LickRecord);
+  end;
+end;
+
+
+// Procedures for continuous recording
+var
+  MatName: string;
+
+EndProcess
+if DetectionType=1 then
+begin
+   detector.update(v1.Iend); // this also applies for episodes recording
+end;
+if ContinuousRec then
+begin
+  // save in Elphy data file
+  SaveParametersDatafile;                         // Marche pas!
+  DataFile0.AppendObject(Vdetect);     // Marche pas!
+  // save for Matlab
+  MatName:= DataPath+DataName+'.mat';
+  if Vdetect.icount>0 then Vdetect.SaveToMatFile(MatName,'PedalTimes', 7 , FALSE);
+end;
+
+procedure RunContinuous;
+begin
+  // ACQUISITION
+  // init acquisition
+  with Acquisition do
+  begin
+    Fcontinuous:=true;
+    Fdisplay:=true;
+    FimmediateDisplay:=true;
+    ChannelCount:=1;
+    with Channels[1] do
+    begin
+      PhysNum:=0;
+      UnitY:='mV';
+      setScale(0,32767,0,10000);
+      DownSamplingFactor:= 1;
+    end;
+    Fstimulate:=false;
+  end;
+  // init event detection
+  InitDetectorReward;
+  // display parameters
+  v1.Xmin:=0;
+  v1.Xmax:=10;
+  // start acquisition
+  acquisition.startAndSave;
+
+  // SAVE
+  // done in 'EndProcess' above
+end;
+
+// General experiment procedure
+procedure RunTheExp;
+begin
+  // Check current settings
+  if not CheckCurrentSettings then break;
+  // Save menu parameters to default
+  if DoMenu then SaveDefaultMenuParameters;
+  // Re-init some variables
+  InitRewardCount;
+  // Erase status information
+  for i:=1 to 7 do status.text[i]:='';
+  // Call the procedure for Episodes or Continuous recording
+  if ContinuousRec then RunContinuous else RunEpisodes;
+  // Update the generic file name
+  Acquisition.GenericFileName := DataPath+DataName+'.DAT';
+end;
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////// Program ////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+program 'Open program'
+Opening_procedure;
