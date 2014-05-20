@@ -1,4 +1,4 @@
-{$EDIT VariablesAndTools}
+{$EDIT Variables}
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// Variables other than parameters //////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -7,9 +7,12 @@ const
   Sound_Sampling_Frequency= 192000;    // Hz
   //Lick_Sampling_Frequency = 1000;      // Hz
 var
-  plot: TXYplot;
+  plot, maskPlot: TXYplot;
   bar, dumBar: Tbar; // dumBar and dumStim will be displayed anyway: they force the duration of the VisualStimulation to a certain length
   Stim, dumStim: TonOff;
+  anim: Ttrajectory; // used to create animation, e.g. the looming circle
+  maskBar: array [1..2] of Tbar;
+  xCenter, yCenter: real; // center (not 0 if masking)
   gratings: array [1..2] of TLGrating;
   shiftgrat: array [1..2] of TphaseTranslation;
   bitmap: TVSbitmap;
@@ -21,9 +24,9 @@ var
   vfilt: Tvector;
   NIanalog: TNIinterface;
   ParamWin: Tdialog;
+  OkParamWin: boolean; // tells whether ParamWin has been initialized already
   Ni: TNIinterface;
-  FileList,ProtocolList,DetectionList,TriggerList,RewardCriterionList: Tmemo;
-  VisualProtocols,AuditoryProtocols,VisualStimuli,AuditoryStimuli: Tmemo;
+  FileList: Tmemo;
   SoundList,ImageList: Tmemo;
   FileNameHandle: integer;
   Sounds: array [1..100] of TVector;
@@ -51,7 +54,7 @@ var
   str,str1,str2: string;  // same for strings
 
 
-
+{$EDIT Tools}
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// Small tools //////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -59,6 +62,11 @@ var
 procedure display(text:string);
 begin
   status.text[1]:=text;
+end;
+
+function min(a,b:real):real;
+begin
+  if a<b then min:=a else min:=b;
 end;
 
 function max(a,b:real):real;
@@ -120,14 +128,17 @@ var
   VStimType: word; // no menu
   BackgroundLuminance: integer;
   KeepGratingOn,SquareWaveGrating: boolean;
+  DoMask: boolean; 
   VAlpha, VOri, VOri2: real; // no menu
-  VSize, VSpeed, VLum: real; 
-  ImageFile: string;  
+  VSize, VSize2, VSpeed, VLum: real; 
+  ImageListFile: string;  
+  ImageIdx: integer;
   // (audio stim)
   SStimType: word; // no menu
   Sfreq, Sfreq2: real; // no menu
-  SLevel, SAlpha, SDuration, SDelay: real;
-  SoundFile: string;
+  SLevel, SLevel2, SAlpha, SDuration, SDelay: real;
+  SoundListFile: string;
+  SoundIdx: integer;
   
   // "StimGen" parameters
   // (general)
@@ -135,17 +146,18 @@ var
   // (visual stim)
   VProtocolType: word;  
   alpha1, alpha2: real;
-  ImageListFile: string; 
   // (audio Stim)
   SProtocolType: word;
   f1, f2: real;
-  SoundListFile: string;
      
   // Handling of parameters
   DoMenu: boolean;     // Are we using the menus?
   StimTable: TDBtable; // Values of parameters that change in different conditions
   ParList: TDBrecord;  // All the parameters and their types
   spar: TDBrecord;     // An intermediary for when reading .csv file
+  ProtocolList,DetectionList,TriggerList,RewardCriterionList: Tmemo;       // Various lists
+  VisualProtocols,AuditoryProtocols,VisualStimuli,AuditoryStimuli: Tmemo;
+  AllListMemo: Tmemo; // summarizes the correspondence between list items and numbers
     
   // Local parameters
   Dev: string;
@@ -158,6 +170,7 @@ const
   //LocalParameterFile = 'C:\Users\THomas\Desktop\Manip3_LocalParameters.param'; 
   DefaultMenuParameterFile = 'Y:\Behavior\Elphy\parameters\default.param';
   LocalParameterFile = 'D:\Elphy Programs\Manip3_LocalParameters.param';
+  ListMemoFile = 'Y:\Behavior\Elphy\parameters\LISTS_MEMO.csv';
 
 var
   ParameterFile,ParameterDir,ParameterFileBase: string;
@@ -243,6 +256,7 @@ begin
   BackgroundLuminance:=25;
   KeepGratingOn:=FALSE;
   SquareWaveGrating:=FALSE;
+  DoMask:=FALSE;
   // Stim parameters
   // (visual stim)
   VStimType:=1;
@@ -250,18 +264,22 @@ begin
   VOri:=180;
   VOri2:=0;
   VSize:=7;
+  VSize2:=7;
   VSpeed:=400;
   VLum:=100;
-  ImageFile:='';
+  ImageListFile:='';
+  ImageIdx:=0;
   // (audio stim)
   SStimType:=1;
   Sfreq:=8000;
   SFreq2:=16000;
   SLevel:=1;
+  SLevel2:=1;
   SAlpha:=0;
   SDuration:=200;
   SDelay:=0;
-  SoundFile:='';
+  SoundListFile:='';
+  SoundIdx:=0;
   // StimGen parameters
   // (general)
   ProtocolType:=1;
@@ -319,22 +337,27 @@ begin
   parlist.BackgroundLuminance := db_integer;
   parlist.KeepGratingOn := db_boolean;
   parlist.SquareWaveGrating := db_boolean;
+  parlist.DoMask := db_boolean;
   parlist.VAlpha := db_real;
   parlist.VOri := db_real;
   parlist.VOri2 := db_real;
   parlist.VSize := db_real; 
+  parlist.VSize2 := db_real; 
   parlist.VSpeed := db_real; 
   parlist.VLum := db_real; 
-  parlist.ImageFile := ImageFile;
+  parlist.ImageListFile := db_string;
+  parlist.ImageIdx := db_integer;
   // (audio stim)
   parlist.SStimType := db_integer;
   parlist.Sfreq := db_real;
   parlist.Sfreq2 := db_real;
   parlist.SLevel := db_real;
+  parlist.SLevel2 := db_real;
   parlist.SAlpha := db_real;
   parlist.SDuration := db_real;
   parlist.SDelay := db_real;
-  parlist.SoundFile := SoundFile;
+  parlist.SoundListFile := db_string;
+  parlist.SoundIdx := db_integer;
 end;
 
 // Init the stim table
@@ -400,22 +423,27 @@ begin
     Addline('BackgroundLuminance'+';'+Istr(BackgroundLuminance));
     Addline('KeepGratingOn'+';'+Bstr(KeepGratingOn));
     Addline('SquareWaveGrating'+';'+Bstr(SquareWaveGrating));
+    Addline('DoMask'+';'+Bstr(DoMask));
     Addline('VAlpha'+';'+Rstr(VAlpha));
     Addline('VOri'+';'+Rstr(VOri));
     Addline('VOri2'+';'+Rstr(VOri2));
     Addline('VSize'+';'+Rstr(VSize)); 
+    Addline('VSize2'+';'+Rstr(VSize2)); 
     Addline('VSpeed'+';'+Rstr(VSpeed)); 
     Addline('VLum'+';'+Rstr(VLum)); 
-    AddLine('ImageFile'+';'+ImageFile);  
+    AddLine('ImageListFile'+';'+ImageListFile);  
+    AddLine('ImageIdx'+';'+Istr(ImageIdx));  
     // (audio stim)
     Addline('SStimType'+';'+Istr(SStimType));
     Addline('Sfreq'+';'+Rstr(Sfreq));
     Addline('Sfreq2'+';'+Rstr(Sfreq2));
     Addline('SLevel'+';'+Rstr(SLevel));
+    Addline('SLevel2'+';'+Rstr(SLevel2));
     Addline('SAlpha'+';'+Rstr(SAlpha));
     Addline('SDuration'+';'+Rstr(SDuration));
     Addline('SDelay'+';'+Rstr(SDelay));
-    AddLine('SoundFile'+';'+SoundFile);
+    AddLine('SoundListFile'+';'+SoundListFile);
+    AddLine('SoundIdx'+';'+Istr(SoundIdx));  
     
     // Multiple values in StimTable
     for j:=1 to StimTable.ColCount do
@@ -499,22 +527,27 @@ begin
   if spar.fieldExists('BackgroundLuminance') then BackgroundLuminance:=spar.BackgroundLuminance;
   if spar.fieldExists('KeepGratingOn') then KeepGratingOn:=spar.KeepGratingOn;
   if spar.fieldExists('SquareWaveGrating') then SquareWaveGrating:=spar.SquareWaveGrating;
+  if spar.fieldExists('DoMask') then DoMask:=spar.DoMask;
   if spar.fieldExists('VAlpha') then VAlpha:=spar.VAlpha;
   if spar.fieldExists('VOri') then VOri:=spar.VOri;
   if spar.fieldExists('VOri2') then VOri2:=spar.VOri2;
   if spar.fieldExists('VSize') then VSize:=spar.VSize; 
+  if spar.fieldExists('VSize2') then VSize2:=spar.VSize2; 
   if spar.fieldExists('VSpeed') then VSpeed:=spar.VSpeed; 
   if spar.fieldExists('VLum') then VLum:=spar.VLum; 
-  if spar.fieldExists('ImageFile') then ImageFile:=spar.ImageFile; 
+  if spar.fieldExists('ImageListFile') then ImageListFile:=spar.ImageListFile; 
+  if spar.fieldExists('ImageIdx') then ImageIdx:=spar.ImageIdx;
   // (audio stim)
   if spar.fieldExists('SStimType') then SStimType:=spar.SStimType;
   if spar.fieldExists('Sfreq') then Sfreq:=spar.Sfreq;
   if spar.fieldExists('Sfreq2') then Sfreq2:=spar.Sfreq2;
   if spar.fieldExists('SLevel') then SLevel:=spar.SLevel;
+  if spar.fieldExists('SLevel2') then SLevel2:=spar.SLevel2;
   if spar.fieldExists('SAlpha') then SAlpha:=spar.SAlpha;
   if spar.fieldExists('SDuration') then SDuration:=spar.SDuration;
   if spar.fieldExists('SDelay') then SDelay:=spar.SDelay;
-  if spar.fieldExists('SoundFile') then SoundFile:=spar.SoundFile; 
+  if spar.fieldExists('SoundListFile') then SoundListFile:=spar.SoundListFile; 
+  if spar.fieldExists('SoundIdx') then SoundIdx:=spar.SoundIdx;
 end;
 
 // Load parameters from TMemo object
@@ -535,40 +568,40 @@ begin
   for j:=1 to ppar2.count do
   begin
     oneline:=ppar2.lines[j];
-    i:=0; // condition number <-> column in table
-    str:='';
-    // scan the line character per character    
-    for p:=1 to length(str) do
+    i:=-1; // condition number <-> column in table
+    p:=0;  // position reading in table
+    while p<=length(oneline) do
     begin
-      // read one character
-      if oneline[p]<>';' then
+      // read characters until a delimiter is reached
+      inc(p);
+      str:='';
+      while (p<=length(oneline)) AND (oneline[p]<>';') do
       begin
-        // build the current string
         str:=str+oneline[p];
-      end
-      else
-      begin
-        // action with completed string      
-        case i of
-          0: fieldname:=str;
-          1: firstvalue:=str;
-          2: begin
-              if (str='') then
-              begin
-                // unique value 
-                AssignRecord(spar,fieldname,firstvalue); 
-                break; 
-              end else
-              begin
-                // multiple values
-                AssignRecord(StimTable[1],fieldname,firstvalue);
-                AssignRecord(StimTable[2],fieldname,str);
-              end;
-             end;
-          else AssignRecord(StimTable[i],fieldname,str);
-        end;            
+        inc(p);
+      end;
+      // action with completed string   
+      inc(i);   
+      case i of
+        0: fieldname:=str;
+        1: firstvalue:=str;
+        2: begin
+            if (str='') then
+            begin
+              // no more than one value
+              AssignRecord(spar,fieldname,firstvalue);
+              break;
+            end else
+            begin
+              // more than one value: assign the 1st and 2d values
+              AssignRecord(StimTable[1],fieldname,firstvalue);
+              AssignRecord(StimTable[2],fieldname,str);
+            end;
+           end;
+        else AssignRecord(StimTable[i],fieldname,str); // assign the ith value
       end; 
-    end;    
+    end;  
+    if i=1 then AssignRecord(spar,fieldname,firstvalue);   
   end;
   
   // Define unique-value parameters from spar
@@ -615,15 +648,17 @@ begin
   mpar2.BackgroundLuminance:=BackgroundLuminance;
   mpar2.KeepGratingOn:=KeepGratingOn;
   mpar2.SquareWaveGrating:=SquareWaveGrating;
+  mpar2.DoMask:=DoMask;
   // Stim parameters
   // (visual stim)
   mpar2.VSize:=VSize;
   mpar2.VSpeed:=VSpeed;
   mpar2.VLum:=VLum;
   // (audio stim)
-  mpar2.SLevel:=SLevel;
   mpar2.SDuration:=SDuration;
   mpar2.SDelay:=SDelay;
+  mpar2.SFreq:=SFreq;
+  mpar2.SLevel:=SLevel;
   // StimGen parameters
   // (general)
   mpar2.ProtocolType:=ProtocolType;
@@ -673,15 +708,17 @@ begin
   if mpar2.fieldExists('BackgroundLuminance') then BackgroundLuminance:=mpar2.BackgroundLuminance else BackgroundLuminance:=25;
   if mpar2.fieldExists('KeepGratingOn') then KeepGratingOn:=mpar2.KeepGratingOn else KeepGratingOn:=FALSE;
   if mpar2.fieldExists('SquareWaveGrating') then SquareWaveGrating:=mpar2.SquareWaveGrating else SquareWaveGrating:=FALSE;
+  if mpar2.fieldExists('DoMask') then DoMask:=mpar2.DoMask else DoMask:=FALSE;
   // Stim parameters
   // (visual stim)
   VSize:=mpar2.VSize;
   if mpar2.fieldExists('VSpeed') then VSpeed:=mpar2.VSpeed else VSpeed:=0;
   VLum:=mpar2.VLum;
   // (audio stim)
-  SLevel:=mpar2.SLevel;
   if mpar2.fieldExists('SDuration') then SDuration:=mpar2.SDuration else SDuration:=100;
   if mpar2.fieldExists('SDelay') then SDelay:=mpar2.SDelay else SDelay:=0;
+  if mpar2.fieldExists('SFreq') then SFreq:=mpar2.SFreq else SFreq:=8000;
+  SLevel:=mpar2.SLevel;
   
   // StimGen parameters
   // (general)
@@ -720,13 +757,13 @@ begin
   if DoMenu then ext:='.param' else ext:='.csv';
   if length(FileName)=0 then
   begin
-    FileName:=ParameterDir+'\*'+ext;
+    FileName:=ParameterDir+'*'+ext;
     SaveFileDialog(FileName,ext);
   end;
   
   // Memorize file name (folder, base and full file)
   SplitFileName(FileName,ParameterDir,ParameterFileBase,str2);
-  ParameterFile:=ParameterDir+'\'+ParameterFileBase+ext;
+  ParameterFile:=ParameterDir+ParameterFileBase+ext;
   SaveLocalParameters;
   ParameterChanged:=false;
   
@@ -739,7 +776,7 @@ begin
   end;
 
   // Save full parameters in any case
-  FullPar2Memo; // copy parameters from gpar and sparA to fullpar2
+  FullPar2Memo; // copy experiment parameters and stim table to ppar2
   ppar2.SaveToFile(ParameterDir+'\'+ParameterFileBase+'.csv');
   
   // Add the extension to the base file name
@@ -793,13 +830,13 @@ begin
     mpar2.create;
     mpar2.LoadObject(FileName);
     TDBrecord2MenuPar; // copy menu parameters from mpar2 to mpar
-    MenuPar2FullPar;   // Generate the full parameters (gpar+sparA)
+    MenuPar2FullPar;   // Generate the full parameters (single parameters + stim table)
   end
   else
   begin
     ppar2.create;
     ppar2.LoadFromFile(FileName);
-    Memo2FullPar; // copy parameters from fullpar2 to gpar and sparA
+    Memo2FullPar; // copy parameters from ppar2 to single parameters + stim table
   end;
   
   // Redisplay the menu (because many controls do not appear if we are not in Menu mode)
@@ -815,6 +852,8 @@ end;
 // Init all lists that appear in the menus
 procedure DefineParameterLists;
 begin
+  AllListMemo.create;
+
   with ProtocolList do
   begin
     create;
@@ -824,6 +863,9 @@ begin
     addLine('Pre-training with both stimuli');
     addLine('Touch test');
   end;
+  AllListMemo.addLine('ProtocolList');
+  for i:=1 to ProtocolList.count do AllListMemo.addLine(Istr(i)+';'+ProtocolList.lines[i]);
+
   with TriggerList do
   begin
     create;
@@ -832,12 +874,18 @@ begin
     addLine('microscope');
     addLine('no lick');
   end;
+  AllListMemo.addLine('TriggerList');
+  for i:=1 to TriggerList.count do AllListMemo.addLine(Istr(i)+';'+TriggerList.lines[i]);
+
   with RewardCriterionList do
   begin
     create;
     addLine('Lick Count');
     addLine('Immediate on lick');
   end;
+  AllListMemo.addLine('RewardCriterionList');
+  for i:=1 to RewardCriterionList.count do AllListMemo.addLine(Istr(i)+';'+RewardCriterionList.lines[i]);
+
   with DetectionList do
   begin
     create;
@@ -845,6 +893,9 @@ begin
     addLine('Lick, head fixed: Electric contact');
     addLine('Lick, freely moving: IR fork');
   end;
+  AllListMemo.addLine('DetectionList');
+  for i:=1 to DetectionList.count do AllListMemo.addLine(Istr(i)+';'+DetectionList.lines[i]);
+
   with VisualStimuli do
   begin
     create;
@@ -853,7 +904,11 @@ begin
     addLine('Two gratings');
     addLine('Image');
     addLine('Circle');
+    addLine('Looming circle');
   end;  
+  AllListMemo.addLine('VisualStimuli');
+  for i:=1 to VisualStimuli.count do AllListMemo.addLine(Istr(i)+';'+VisualStimuli.lines[i]);
+
   with VisualProtocols do
   begin
     create;
@@ -862,33 +917,46 @@ begin
     addLine('Loaded images');
     addLine('Luminance Circles');
     addLine('Gratings & Orientation morphing');
+    addLine('Looming circle');
   end;  
+  AllListMemo.addLine('VisualProtocols');
+  for i:=1 to VisualProtocols.count do AllListMemo.addLine(Istr(i)+';'+VisualProtocols.lines[i]);
+
   with AuditoryStimuli do
   begin
     create;
     addLine('Tone');
     addLine('Two tones');
-    addLine('Ramp');
-    addLine('Two ramps');
+    addLine('Frequency ramp');
+    addLine('Two frequency ramps');
     addLine('File');
     addLine('Two files');
+    addLine('Amplitude ramp');
   end;
+  AllListMemo.addLine('AuditoryStimuli');
+  for i:=1 to AuditoryStimuli.count do AllListMemo.addLine(Istr(i)+';'+AuditoryStimuli.lines[i]);
+
   with AuditoryProtocols do
   begin
     create;
     addLine('Two tones & frequency morphing');
     addLine('Two tones & amplitude morphing');
-    addLine('Ramp & frequency morphing');
-    addLine('Ramp & amplitude morphing');
+    addLine('Frequency ramp & frequency morphing');
+    addLine('Frequency ramp & amplitude morphing');
     addLine('Loaded files');
     addLine('Two loaded files  & amplitude morphing');
+    addLine('Amplitude ramp');
   end;
+  AllListMemo.addLine('AuditoryProtocols');
+  for i:=1 to AuditoryProtocols.count do AllListMemo.addLine(Istr(i)+';'+AuditoryProtocols.lines[i]);
+
+  AllListMemo.SaveToFile(ListMemoFile);
 end;
 
 // Settings = experiment parameters + local parameters + other variables
 procedure InitSettings;
 begin
-  // init variables which are not parameters
+  // init some variables which are not parameters
   rewardTotal:=0;
   DoMenu:=TRUE;
 
@@ -966,12 +1034,12 @@ begin
     1..2: NStim:=NStim;
     3: begin NStim:=1; TaskType:=1; end;
     4: NStim:=2;
-    // Continuous run: set only the general parameters below; there are no stim parameters
-    5: begin NStim:=0; ContinuousRec:=TRUE; break; end;
+    5: NStim:=0; 
   end;
-  ContinuousRec:=FALSE;
-//  ParamWin.update; // XXXX  
-    
+  ContinuousRec:=(ProtocolType=5);
+  if OkParamWin then ParamWin.update;
+  if ContinuousRec then break; // there are no stim parameters in continuous mode
+
   // Stim table
   InitStimTable;
   with StimTable do
@@ -980,7 +1048,9 @@ begin
     begin
       // Condition index for sound (inversion for protocol 'Double unimodal ambiguities')
       if ProtocolType=2 then 
-        if i<=NStim/2 then j:=Floor(NStim/2)+1-i else j:=NStim+1-(i-Floor(NStim/2)); 
+        if i<=NStim/2 then j:=Floor(NStim/2)+1-i else j:=NStim+1-(i-Floor(NStim/2)) 
+      else
+        j:=i;
       // Object values
       if NStim=1 then
         begin ObjValueV:=0; ObjValueS:=0; end
@@ -993,27 +1063,31 @@ begin
         // Gratings & Amplitude morphing
         2: begin VStimType:=3; VOri:=alpha1; VOri2:=alpha2; stimtable[i].VAlpha:=ObjValueV; end;
         // Loaded images
-        3: begin VStimType:=4; end; // XXXX 
+        3: begin VStimType:=4; stimtable[i].ImageIdx:=i; end;
         // Luminance Circles
         4: begin VStimType:=5; stimtable[i].VLum:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; end;
         // Gratings & Orientation morphing
         5: begin VStimType:=2; stimtable[i].VOri:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; end;
+        // Looming Circle
+        6: begin VStimType:=6; stimtable[i].VSize:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; stimtable[i].VSize2:=alpha2*(1-ObjValueV)+alpha1*ObjValueV; end;
       end;
       // Audio stim
       SStimType:=SProtocolType;
       case SProtocolType of
-        // Two tones & frequency morphing
-        1: begin stimtable[i].SFreq:=f1*(1-ObjValueS)+f2*ObjValueS; end;
+        // Two tones & frequency morphing (logarithmic scale!)
+        1: begin stimtable[i].SFreq:=Exp(Ln(f1)*(1-ObjValueS)+Ln(f2)*ObjValueS); end;
         // Two tones & amplitude morphing
         2: begin SFreq:=f1; SFreq2:=f2; stimtable[i].SAlpha:=ObjValueS; end;
-        // Ramp & frequency morphing
-        3: begin stimtable[i].SFreq:=f1*(1-ObjValueS)+f2*ObjValueS; stimtable[i].SFreq2:=f2*(1-ObjValueS)+f1*ObjValueS; stimtable[i].SAlpha:=ObjValueS; end;
+        // Ramp & frequency morphing (logarithmic scale!)
+        3: begin stimtable[i].SFreq:=Exp(Ln(f1)*(1-ObjValueS)+Ln(f2)*ObjValueS); stimtable[i].SFreq2:=Exp(Ln(f2)*(1-ObjValueS)+Ln(f1)*ObjValueS); stimtable[i].SAlpha:=ObjValueS; end;
         // Ramp & amplitude morphing
         4: begin stimtable[i].SFreq:=f1; stimtable[i].SFreq2:=f2; stimtable[i].SAlpha:=ObjValueS; end;
-     {   // Loaded files
-        5: XXX
-        // Two loaded files  & amplitude morphing
-        6: XXX      }    
+        // Loaded files
+        5: stimtable[i].ImageIdx:=i;
+        // Two loaded files & amplitude morphing
+        6: stimtable[i].SAlpha:=ObjValueS;  
+        // Amplitude ramp (logarithmic scale!)
+        7: begin stimtable[i].SLevel:=Exp(Ln(f1)*(1-ObjValueS)+Ln(f2)*ObjValueS); stimtable[i].SLevel2:=Exp(Ln(f2)*(1-ObjValueS)+Ln(f1)*ObjValueS); stimtable[i].SAlpha:=ObjValueS; end;
       end;
       // Reward parameters
       if ProtocolType<>3 then stimtable[i].TaskType := 1+Ord(i>NStim/2);
@@ -1043,13 +1117,16 @@ begin
     // Files menu
     selectPanel('1.1');
     FileNameHandle:=setText(ParameterFileBase);
-    getCommandA('Load Parameters...',Go,101);
+    if not Domenu then
+      getCommandA('Reload',Go,101);
+    getCommandA('Load Parameters...',Go,102);
     if DoMenu then
     begin
-      getCommandA('Save Parameters',Go,102);
-      getCommandA('Save Parameters as...', Go, 103);
+      getCommandA('Save Parameters',Go,103);
+      getCommandA('Save Parameters as...', Go, 104);
     end;
-    getRealA('Reward conversion (ms/ul)',rewardConversion,4,1,104);
+    
+    getRealA('Reward conversion (ms/ul)',rewardConversion,4,1,105);
     getReal('Total Reward (ul)',rewardTotal,4,1);
     setText(''); // add a separation line
   
@@ -1057,7 +1134,7 @@ begin
     begin
       // General parameters menu
       selectPanel('1.2.1');
-      getstringList1('Protocol Type',ProtocolList,ProtocolType);
+      getstringList1A('Protocol Type',ProtocolList,ProtocolType,501);
       getstringList1('Reward  Criterion',RewardCriterionList,RewardCriterion);
       getstringList1('Trigger',TriggerList,TriggerType);
       getInteger('# Stimuli',NStim,5);
@@ -1096,6 +1173,7 @@ begin
       getInteger('Background Luminance',BackgroundLuminance,5);
       getBoolean('Keep grating on',KeepGratingOn);
       getBoolean('Square wave grating',SquareWaveGrating);
+      getBoolean('Bottom-left corner only',DoMask);
       getReal('S+ parameter',alpha1,5,2);
       getReal('S- parameter',alpha2,5,2);
       getReal('Object Size',VSize,5,1);
@@ -1107,7 +1185,7 @@ begin
     
       // Auditory parameters
       selectPanel('1.2.5');
-      getstringList1('Stimulus protocol',AuditoryProtocols,SProtocolType);
+      getstringList1A('Stimulus protocol',AuditoryProtocols,SProtocolType,502);
       getReal('S+ parameter',f1,5,1);
       getReal('S- parameter',f2,5,1);
       getReal('Sound duration',SDuration,5,1);
@@ -1195,15 +1273,15 @@ var
 begin
   // Update parameter values
   ParamWin.updatevar;
-  if DoMenu then MenuPar2FullPar;
   
   // Perform action
   case N of
     // File actions
-    101: LoadParameters('');
-    102: SaveParameters(ParameterFile);
-    103: SaveParameters('');
-    104: SaveLocalParameters; // rewardConversion has changed
+    101: LoadParameters(ParameterFile);
+    102: LoadParameters('');
+    103: SaveParameters(ParameterFile);
+    104: SaveParameters('');
+    105: SaveLocalParameters; // rewardConversion has changed
     // General parameters
     201: RunTheExp;
     203: OpenValve(rewardVolume);
@@ -1216,17 +1294,82 @@ begin
     401: ChooseSounds;
     402: TestSounds;
     // Otherwise, some parameter has probably been changed
-    else if DoMenu then ParameterChanged:=true;
+    else if DoMenu then 
+    begin
+      MenuPar2FullPar;
+      ParameterChanged:=true;
+      // Warning message: not twisting loaded sounds
+      if (ProtocolType=2) AND (SProtocolType=5) AND ((N=501) OR (N=502)) then 
+        MessageBox('Warning: loaded sounds are NOT twisted for "double unimodal ambiguities" protocol.');
+    end;
   end;
   
   // Several actions resulted in changing some parameters (especially the parameter file name), update the display
   ParamWinUpdate;
 end;
 
-{$EDIT Stimulation}
+{$EDIT VisualStim}
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////// Visual stimulation //////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+
+// Mask
+procedure MakeMask;
+var
+  Nb: integer;
+  W,H: real;
+begin
+  // Mask mode: center in the bottom-left part of the screen
+  W:=stimScreen.width;
+  H:=stimScreen.height;
+  xCenter:=W*(-0.5+0.3); 
+  yCenter:=H*(-0.5+0.3); 
+  // create the mask (2 rectangles)
+  for i:=1 to 2 do
+  with maskBar[i] do
+  begin
+    create;
+    if i=1 then
+    begin
+      x:=0;
+      dx:=W;
+      y:=H/2+yCenter; // the calculation to get this is weird...
+      dy:=-2*yCenter;
+    end else
+    begin
+      x:=W/2+xCenter;
+      dx:=-2*xCenter;
+      y:=0;
+      dy:=H;
+    end;
+    Lum:=0;
+    OnScreen:=TRUE;
+    ZDistance:=-10;
+  end;   
+end;
+
+// dumBar: an object which is not visible, but forces VisualStim
+// to be of the appropriate length
+procedure MakeDumBar(EpisodeDuration:integer);
+begin
+  with dumBar do
+  begin
+    create;
+    x:=-StimScreen.Width/2+1;
+    y:=StimScreen.Height/2-1;
+    dx:=1;
+    dy:=1;
+    Lum:=BackgroundLuminance;
+  end;
+  with dumStim do
+  begin
+    create;
+    DtON := EpisodeDuration/1000; // seconds
+    setSyncPulse(0);
+    setVisualObject(dumBar);
+  end;
+end;
+
 
 // Design the square or star shape.
 // Square: alpha = 0 ; Star : 0 < alpha < 1
@@ -1234,7 +1377,7 @@ end;
 procedure MakeStarContour;
 var
   xc,yc,DD:real;
-  i,j,k,Nb:integer;
+  Nb:integer;
 begin
   Nb:=8; DD:=VSize;
 
@@ -1242,18 +1385,12 @@ begin
   with plot do
   begin
     create;
-    for i:=1 to 1 do
-    for j:=1 to 1 do
+    AddPolyline;
+    with polylines[1] do
     begin
-      AddPolyline;
-
-      with polylines[count] do
-      begin
-        xc:=0+0*i;
-        yc:=0+0*j;
-        for k:=0 to Nb do
-          addPoint(xc+DD*(1-(k mod 2)*VAlpha)*(1+(k mod 2)*(-1+1/sqrt(2))) *cos(2*pi/Nb*k),yc+DD*(1-(k mod 2)*VAlpha)*(1+(k mod 2)*(-1+1/sqrt(2)))*sin(2*pi/Nb*k));
-      end;
+      for k:=0 to Nb do
+        addPoint(DD*(1-(k mod 2)*VAlpha)*(1+(k mod 2)*(-1+1/sqrt(2))) *cos(2*pi/Nb*k),
+                 DD*(1-(k mod 2)*VAlpha)*(1+(k mod 2)*(-1+1/sqrt(2)))*sin(2*pi/Nb*k));
     end;
   end;
 
@@ -1261,11 +1398,13 @@ begin
   with bar do
   begin
     create;
-    dx:=20;
-    dy:=20;
+    x:=xCenter;
+    y:=yCenter;
+    dx:=VSize*2;
+    dy:=VSize*2;
     Lum:=VLum;
     setContour(plot);
-    UseContour:=true;
+    UseContour:=TRUE;
   end;
 
   // create stim (TOnOff object)and assign the bar to it
@@ -1287,12 +1426,14 @@ begin
   with bitmap do
   begin
     create;
-    fileName:=ImageList.lines[ICond];
+    fileName:=ImageList.lines[ImageIdx];
     if width>height then
       ImageWidth:=VSize
     else
       ImageWidth:=VSize/height*width;
     ImageHeight:=ImageWidth/width*height;
+    x:=xCenter;
+    y:=yCenter;
     dx:=ImageWidth;
     dy:=ImageHeight;
   end;
@@ -1309,7 +1450,7 @@ begin
   end;
 end;
 
-// Image display
+// Luminance circle
 procedure MakeLuminanceCircle;
 begin
   // create circle (Tdisk object)
@@ -1330,6 +1471,43 @@ begin
     DtOff:= 0;
     setSyncPulse(0);
     setVisualObject(circle);
+  end;
+end;
+
+// Looming circle
+procedure MakeLoomingCircle;
+var
+  nframe: integer;
+  cSize, cOn: TVector;
+begin
+  // create circle (Tdisk object)
+  with circle do
+  begin
+    create;
+    x:=xCenter;
+    y:=yCenter;
+    dx:=VSize;
+    dy:=VSize;
+    Lum:= VLum;
+  end;
+
+  // create anim (Ttrajectory object) to animate the circle
+  nframe:=Round(VisualStimDuration/1000/VisualStim.TFrame);
+  vect.create(t_double,1,nframe);
+  for i:=1 to nframe do vect[i] := VSize + (i-1)/(nframe-1)*(VSize2-VSize);
+  cOn.create(t_smallint,1,nframe);
+  for i:=1 to nframe do cOn[i]:=1;
+  with anim do
+  begin
+    create;
+    StartTime:=StimDelay/1000; // secondes
+    DtON:= VisualStimDuration/1000;
+    //DtOff:= 0;
+    setVisualObject(circle);
+    AddVector('ONSCREEN',cOn);
+    AddVector('DX',vect);
+    AddVector('DY',vect);
+    setSyncPulse(0);
   end;
 end;
 
@@ -1414,16 +1592,11 @@ begin
         end;
       end;
     end;
-    if valid then
-    begin
-      NStim:=ImageList.count;
-    end
-    else
+    if not valid then
     begin
       ImageListFile:='';
       MessageBox('Invalid image list file, or images not present');
     end;
-    ParamWin.update;
 end;
 
 procedure ChooseImages;
@@ -1431,6 +1604,9 @@ begin
   ImageListFile:='*.txt';
   ChooseFile(ImageListFile,'Choose the image listing file');
   LoadImages;
+  if ImageListFile<>'' then NStim:=ImageList.count;
+  ParamWin.Update;
+  MenuPar2FullPar;
 end;
 
 // Build and assign the visual stimulation
@@ -1443,6 +1619,7 @@ begin
     3: MakeShiftingGratings(2);
     4: MakeBitmap;
     5: MakeLuminanceCircle;
+    6: MakeLoomingCircle;
   end;
 end;
 
@@ -1452,6 +1629,17 @@ var
 begin
   // Background luminance
   StimScreen.BackGroundLum:=BackgroundLuminance;
+  // Mask (or set center coordinates to zero)
+  // If no mask, just set the center to center of screen
+  if DoMask then
+    MakeMask
+  else
+  begin
+    xCenter:=0;
+    yCenter:=0;
+  end;
+display('okk');
+
   // Init some objects
   case VStimType of
     2: if KeepGratingOn then initGratings(1);
@@ -1473,16 +1661,21 @@ var
   i:integer;
   tmp:integer;
 begin
+display('hello');
   if DoMenu then SaveDefaultMenuParameters; 
   Initialize_AcqAndTriggs;
+display('kk');
   initVisual;
+display('ddd');
   VisualStim.OnStartAnimate1:=NIL;
   VisualStim.OnStartAnimate2:=NIL;
 
   tmp:=StimDelay;
   StimDelay:=300;
+display('nstim='+Istr(nstim));
   for i:= 1 to NStim do 
   begin
+    display(Istr(i));
     ICond:=i;
     Record2Par(StimTable[i]); // update parameters for condition i
     setVisualStim;            // set stim
@@ -1493,10 +1686,12 @@ begin
   StimDelay:=tmp;
 end;
 
+{$EDIT AudioStim}
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////// Auditory stimulation ////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+// Load sounds
 procedure LoadSounds;
 var
   valid:boolean;
@@ -1526,8 +1721,6 @@ begin
           LoadedSounds[i].create(t_single,1,1);
           LoadedSounds[i].LoadFromWaveFile(str, 1);
           LoadedSounds[i].dy:=5000/32768; // adjust to a max of 5000
-          //for j:=LoadedSounds[i].Istart to LoadedSounds[i].Iend do
-          //  LoadedSounds[i][j] := LoadedSounds[i][j]*4;
           ReadlnText(fid,str);
         end
         else
@@ -1535,54 +1728,32 @@ begin
       end;
     end;
   end;
-  if valid then
+  if not valid then
   begin
-    NStim:=SoundList.count;
-  end
-  else
-  begin
-    ImageListFile:='';
-    MessageBox('Invalid image list file, or images not present');
+    SoundListFile:='';
+    MessageBox('Invalid sound list file, or invalid sound file(s)');
   end;
-  ParamWin.update;
 end;
 
 procedure ChooseSounds;
 begin
   SoundListFile:='*.txt';
   ChooseFile(SoundListFile,'Choose the sounds listing file');
-  LoadSounds;
+  LoadSounds;  
+  if SoundListFile<>'' then NStim:=SoundList.count;
+  ParamWin.Update;
+  MenuPar2FullPar;
 end;
 
 procedure initSounds;
 var
   fstart,fend,frac,time:real;
   nS:integer;
-  doLoad:boolean;
 begin
   display('Initializing sounds');
 
-  // compute max sound duration     
-  if StimTable.FieldExists('SDuration') then
-  begin
-    MaxSoundDuration:=0;
-    for i:=1 to NStim do MaxSoundDuration := max(MaxSoundDuration,StimTable[i].SDuration);
-  end
-  else
-    MaxSoundDuration:=SDuration;  
-  
-  // check that sounds are loaded
-  doLoad := (SStimType>=5) and (SStimType<=6);
-  if doLoad then
-  begin
-    LoadSounds;
-    if (SStimType=5) and (SoundList.count<>NStim) then
-    begin
-      MessageBox('Number of intermediate stimuli not in accordance with number of sounds');
-      NStim := SoundList.count;
-      ParamWin.update;
-    end;
-  end;
+  // load sounds
+  if (SoundListFile<>'') then LoadSounds;
 
   // load equalization parameters
   if FALSE then
@@ -1592,24 +1763,33 @@ begin
     level.create;
   end;
 
-  // compute sounds, or copy loaded sounds
+  // compute sounds (or copy loaded sounds) and memorize max sound duration
+  MaxSoundDuration:=0;
   for i:=1 to NStim do
   begin
     // update parameters for condition i
     Record2Par(StimTable[i]); 
-    // get the length of the sound vector, set the datatype, length, dx and x0 appropriately
-    with NIanalog do
-    begin
-      create(Dev);
-      setAnalogOutput(0,1000/Sound_Sampling_Frequency,SDuration,false);
-      nS:=vector.Icount;
-    end;
-    Sounds[i].create;
-    VCopy(NIanalog.vector,Sounds[i]);   
     // compute the sound
     case SStimType of
+      1..2: // 1 or 2 tone(s)
+      begin
+        // create sound
+        nS := Floor((SDuration/1000)*Sound_Sampling_Frequency);
+        Sounds[i].create(T_double,0,nS-1);
+        // only one sound <-> second sound is zero
+        if (SStimType=1) then SAlpha:=0; 
+        if (SStimType=1) then SFreq2:=SFreq; // this line is actually not necessary 
+        begin
+          time := k / Sound_Sampling_Frequency;
+          Sounds[i][k] := 5000*SLevel*(1-SAlpha)*Sin(2*PI*SFreq*time + PI*time*time*frac);
+          if (SAlpha>0) then Sounds[i][k] := Sounds[i][k] + 5000*SLevel*SAlpha*Sin(2*PI*SFreq2*time - PI*time*time*frac); 
+        end;
+      end;
       1..4: // 1 or 2 tone(s) or ramp(s) -> generic case is 2 frequency ramps
       begin
+        // create sound
+        nS := Floor((SDuration/1000)*Sound_Sampling_Frequency);
+        Sounds[i].create(T_double,0,nS-1);
         // only one sound <-> second sound is zero
         if (SStimType=1) OR (SStimType=3) then SAlpha:=0; 
         if (SStimType=1) then SFreq2:=SFreq; // this line is actually not necessary 
@@ -1629,12 +1809,30 @@ begin
           if (SAlpha>0) then Sounds[i][k] := Sounds[i][k] + 5000*SLevel*SAlpha*Sin(2*PI*SFreq2*time - PI*time*time*frac); 
         end;
       end;
-      5..6: // loaded files
+      5: // loaded files
       begin
+        Sounds[i].create;
         VCopy(LoadedSounds[i],Sounds[i]);
+        SDuration := LoadedSounds[i].icount/Sound_Sampling_Frequency*1000;
+      end;
+      6: // two loaded files and amplitude morphing
+      begin
+        if LoadedSounds[1].icount<>LoadedSounds[2].icount then
+          ErrorDlg('Loaded sounds are not of the same length');
+        Sounds[i].create(T_double,LoadedSounds[1].istart,LoadedSounds[2].iend);
+        for k:=LoadedSounds[1].istart to LoadedSounds[1].iend do
+          Sounds[i][k] := LoadedSounds[1][k]*(1-SAlpha) + LoadedSounds[2][k]*SAlpha; 
+        SDuration := LoadedSounds[1].icount/Sound_Sampling_Frequency*1000;
+      end;
+      7: // amplitude ramp
+      begin
+        i:=0;
       end;
     end;
 
+    // update max sound duration
+    MaxSoundDuration:=max(MaxSoundDuration,SDuration);
+    
     // equalization
     if FALSE then
     begin
@@ -1683,7 +1881,7 @@ end;
 
 // Test sounds
 procedure TestSounds;
-begin
+begin                        
   if DoMenu then SaveDefaultMenuParameters; 
   Initialize_AcqAndTriggs;
   initSounds;
@@ -1701,695 +1899,4 @@ begin
   end;
   VisualStim.StopStim:=FALSE;
 end;
-
-{$EDIT Reward}
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////// Reward routines /////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-// Opens transiently the water valve
-procedure OpenValve(volume: real);
-begin
-  with NIanalog do
-  begin
-    create(Dev);
-    setAnalogOutput(1,1,volume*rewardConversion,false);
-    vector.fill(5000);
-    vector[vector.Iend]:=0;
-    start('');
-    rewardTotal:=rewardTotal+volume;
-    ParamWin.update;
-    delay(Floor(volume*rewardConversion)+100);
-  end;
-
-end;
-
-// Opens or close the water valve
-procedure OpenCloseValve;
-begin
-  with NIanalog do
-  begin
-    create(Dev);
-    setAnalogOutput(1,1,10,false);
-    vector.fill(5000*Ord(ValveOpen));
-    start('');
-    delay(100);
-  end;
-
-end;
-
-
-// Procedure to check if reward will be given and call the OpenValve procedure if necessary
-procedure RewardFunction;
-var
-  det: Tdetect; // We use a Tdetect object for the lick detection
-  w,w1,w2: integer;
-begin
-  Case DetectionType of
-    // Head-fixed touch
-    1:
-    begin
-     with det do
-      begin
-       create;
-       installSource(v1);
-       Xstart:=StimDelay+LickCountingDelay;
-       Xend:=StimDelay+VisualStimDuration+RewardDelay;
-       mode:= sm_crossDw;
-       Length:= 50;
-       height:= LickThresholdTop;
-       execute;
-     end;
-     w1:= det.count;
-
-     with det do
-      begin
-       height:= LickThresholdBottom;
-       execute;
-      end;
-     w2:= det.count;
-     if (w1<=w2) then w:=w1 else w:=w2;
-    end;
-    
-    // Head-fixed licking
-    2:
-    begin
-    v1.CpX:=1;
-    v1.CpY:=1;
-    vfilt.CpX:=v1.CpX;
-    vfilt.CpY:=v1.CpY;
-    Filter(1,FALSE,2,10,v1,vfilt,v1.Xstart,v1.Xend);
-    vfilt.refresh;
-    with det do
-      begin
-       create;
-       installSource(vfilt);
-       Xstart:=StimDelay+LickCountingDelay;
-       Xend:=StimDelay+VisualStimDuration+RewardDelay;
-       mode:= sm_min;
-       height:= -LickThresholdBottom;
-       execute;
-      end;
-      w:= det.count;
-      Vbase:=vfilt.Maxi0;
-     end;
-
-    // Freely moving
-    3:
-     begin
-      vfilt.create;
-      vcopy1(v1,vfilt);
-      vfilt.Threshold1(LickThresholdTop);
-      w:=100-floor(100*vfilt.Mean(StimDelay+VisualStimDuration,StimDelay+VisualStimDuration+RewardDelay));
-     end;
-  end;
-
-  // Give the reward if correct answer to S+ (or free S+ trial)
-  if (TaskType=1) AND activeReward AND ((w>= LickNumber) OR (cnt<=NFreeTrials)) then 
-    OpenValve(Floor(rewardVolume+max(0,w-LickNumber)*rewardSlope));
-     
-  // Record the number of licks
-  status.text[5]:=Istr(w)+' lick(s)';
-  LickRecord[cnt]:=w;
-  
-  // Record whether the trial was correct
-  case TaskType of
-    1: CRecord[cnt] := Ord(w>=LickNumber);
-    2: CRecord[cnt] := Ord(w< LickNumber);
-  end;
-end;
-
-{$EDIT Acquisition}
-////////////////////////////////////////////////////////////////////////////////
-///////////////////////////// Detector routines ////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-// CASE 1 : TRIGGER AN IMMEDIATE REWARD
-
-
-procedure ImmediateRewardFunction(n:integer);
-begin
-  if ContinuousRec then
-    // continuous run with immediate rewards
-    OpenValve(rewardVolume)
-  else
-    // reward if S+ and correct response
-    if (TaskType=1) AND (Vdetect[Vdetect.Iend]>StimDelay+LickCountingDelay) AND (activeReward) then
-    begin
-      OpenValve(rewardVolume);
-      activeReward:=FALSE;
-    end;
-end;
-
-procedure InitDetectorReward;
-begin
-  Vdetect.create;
-  activeReward:=TRUE;
-  with detector do
-  begin
-    create;
-    // detector events are initiated by threshold crossing:
-    // arguments 3 and 4 tell whether up-crossings and down-crossings generate an event
-    initCrossings(v1,Vdetect, true,false, LickThresholdTop+Vbase,LickThresholdBottom+Vbase, 100, 0,false);
-    AddEvent(ImmediateRewardFunction,0);
-  end;
-end;
-
-// CASE 2 : RYTHMICALLY UPDATE THE SOUND TO BE PLAYED
-
-procedure SelectTrialType;forward;
-
-procedure DetectorEventSoundUpdate(n:integer);
-begin
-  if n<NStimPerEp then
-  begin
-    SelectTrialType;
-    setAudioStim(FALSE);
-  end;
-end;
-
-procedure InitDetectorSoundUpdate;
-begin
-  with detector do
-  begin
-    create;
-    // detector events are initiated by a timer
-    initTimer(v1,TrialInterval,StimDelay+MaxSoundDuration+50);
-    AddEvent(DetectorEventSoundUpdate,0);
-  end;
-end;
-
-// THE LINES BELOW ARE NECESSARY FOR THE DETECTOR TO ACT WHEN IN CONTINUOUS ACQUISITION MODE
-
-ProcessCont
-detector.update(v1.Iend);
-
-////////////////////////////////////////////////////////////////////////////////
-///////////////////////////// Trigger routines /////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-// Wait for triggers
-procedure WaitForFork;
-var
-  LickV,thresh,del:real;
-  NREF,NC:integer;
-  ref:boolean;
-  Address:string;
-begin
-  display('wait for fork');
-  Address:=Dev+'/AI1';
-  thresh:=2;
-  del:=20;
-  NC:=0;
-  ref:=FALSE;
-  NREF:=floor(RefractoryTime/del);
-  repeat
-    Ni.Ain(Address,2,LickV);
-    if LickV>=thresh then NC:=NC+1;
-    if NC>=NREF then ref:=TRUE;
-    if LickV<thresh then NC:=0;
-    delay(floor(del));
-
-  until ((LickV<thresh) AND (ref)) OR Visualstim.StopStim;
-  display('Trial');
-end;
-
-procedure WaitForNoLick;
-var
-  LickV,thresh,del,RefreshTime:real;
-  NREF,NREFRE,NC,NC0:integer;
-  ref:boolean;
-  Address:string;
-begin
-
-  display('wait for no lick');
-  Address:=Dev+'/AI0';
-  thresh:=(LickThresholdBottom+Vbase)/1000;
-  status.text[6]:='Vbase=' + Rstr(Vbase,5,2);
-  del:=10;
-  NC:=0;  NC0:=0;
-  ref:=FALSE;
-  NREF:=floor(RefractoryTime/del);
-  NREFRE:=floor(1000/del);
-  WaitVect.create(5,1,NREFRE);
-  repeat
-    Ni.Ain(Address,1,LickV);
-    NC0:=NC0+1; WaitVect[NC0]:=LickV;
-    if LickV>=thresh then NC:=NC+1;
-    if NC>=NREF then ref:=TRUE;
-    if LickV<thresh then NC:=0;
-
-    if NC0>=NREFRE then
-      begin
-          Vbase:=WaitVect.Maxi0*1000;
-          thresh:=(LickThresholdBottom+Vbase)/1000;
-          NC0:=0;
-      end;
-
-    delay(floor(del));
-   // status.text[3]:=Istr(NC);
-   // status.text[4]:=Rstr(LickV,5,2);
-   // status.text[6]:=Rstr(thresh,5,2);
-  until ((LickV>thresh) AND (ref)) OR Visualstim.StopStim;
-  display('Trial');
-end;
-
-procedure WaitForMicroscope;
-var
-  dig,ok:integer;
-  Address:string;
-begin
-  display('wait for microscope');
-  Address:=Dev+'/PORT1/LINE2';
-  // first get a 0 bit (make sure previous acquisition has finished)
-  repeat
-    ok:=Ni.Din(Address,dig);
-    visualStim.TestStopStim;
-  until (dig=0) OR Visualstim.StopStim;
-  // then get a 1 bit (trigger)
-  repeat
-    ok:=Ni.Din(Address,dig);
-    visualStim.TestStopStim;
-  until (dig>0) OR Visualstim.StopStim;
-end;
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////// Acquisition /////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-
-// Procedure for Episodes recording
-procedure Initialize_AcqAndTriggs;
-var
-  SoundStart, EpisodeDuration: integer;
-begin
-
-  // Set general parameters of acquisition
-  if (not Visual) and (NStimPerEp>1) then
-    EpisodeDuration := StimDelay+NStimPerEp*TrialInterval
-  else
-    EpisodeDuration := StimDelay+VisualStimDuration+RewardDelay; // seconds
-  with VisualStim do
-  begin
-    // Period MUST BE 1ms because this is assumed for several actions
-    // (for example, for setting the output that will trigger the sound)
-    PeriodPerChannel:=1; // unit: ms
-    // Erase all displays
-    disableStims;
-    // Handle triggers
-    VisualStim.OnStartAnimate1:=NIL;
-    VisualStim.OnStartAnimate2:=NIL;
-    case TriggerType of
-      2: VisualStim.OnStartAnimate1:=WaitForFork;
-      3: VisualStim.OnStartAnimate1:=WaitForMicroscope;
-      4: VisualStim.OnStartAnimate1:=WaitForNoLick;
-    end;
-  end;
-  with dumBar do
-  begin
-    // 'dumBar' object is not visible but is here just to force the VisualStim
-    // to a specific length (necessary for an accurate length of acquisition and
-    // output when only sounds are played)
-    create;
-    x:=-stimScreen.width/2+1;
-    y:=stimScreen.height/2-1;
-    dx:=1;
-    dy:=1;
-    Lum:=BackgroundLuminance;
-  end;
-  with dumStim do
-  begin
-    create;
-    DtON := EpisodeDuration/1000; // seconds
-    setSyncPulse(0);
-    setVisualObject(dumBar);
-  end;
-
-  // Set input parameters
-  with Acquisition do
-  begin
-    Fcontinuous:=false;
-    if TRUE then
-    begin
-      ChannelCount:=1; //2;
-      with Channels[1] do
-      begin
-        if Behavior then
-          case DetectionType of
-            1: PhysNum:=1;
-            2: PhysNum:=0;
-            3: PhysNum:=1;
-          end
-        else
-          PhysNum:=1; // nothing to record -> record audio stim, just for fun
-        UnitY:='mV';
-        setScale(0,32767,0,10000);
-        DownSamplingFactor:= 1;
-      end;
-      Fstimulate:=true;
-    end
-    else
-    begin
-      ChannelCount:=0;
-    end;
-  end;
-
-  // Set output parameters
-  with Stimulator do
-  begin
-    BufferCount:=1;
-    ChannelCount:=1;
-    setByProg:=true;
-
-    // Trigger for sound
-    with Channels[1] do
-    begin
-      ChannelType:=TO_digiBit;
-      PhysNum:=0;
-      BitNum:=7;
-    end;
-
-    // Init visual stimulation - this also sets acquisition
-    // It is important that this commands occurs here, after we have declared
-    // Channels[1], but before we set the content of vector[1] (since 'InitAcqParams'
-    // sets the appropriate length of vector[1])
-    VisualStim.InitAcqParams; 
-
-    // Fill the output vector of the sound trigger
-    vector[1].fill(0);
-    for i:=1 to NStimPerEp do
-    begin
-      soundStart := StimDelay+(i-1)*TrialInterval+Round(SDelay);
-      vector[1].fill1(1,soundStart,soundStart+10);  // Ce pulse est envoyé sur PFI1, il déclenche le signal analogique
-    end;
-
-  end;
-
-  // Set display range of acquisition
-  v1.Xmin:=0;
-  v1.Xmax:=EpisodeDuration;
-  if Behavior then
-    case DetectionType of
-      1: begin v1.Ymin:=0; v1.Ymax:=5500; end;
-      2: begin v1.Ymin:=-10500; v1.Ymax:=10500; end;
-      3: begin v1.Ymin:=0; v1.Ymax:=5500; end;
-    end
-  else
-    begin v1.Ymin:=-500; v1.Ymax:=500; end;
-
-end;
-
-
-{$EDIT Experiment}
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////// Program opening /////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-// The procedure that intializes the program
-procedure Opening_Procedure;
-begin         
-  // randomize seed for RNG
-  Randomize; 
-  
-  // Init experiment parameters and other variables
-  InitSettings;
-
-  // Initialize data vector
-  with LickRecord do
-  begin
-   create(t_smallint,0,1);
-   Ymin:=0;
-   Ymax:=20;
-  end;
-  with CRecord do
-  begin
-   create(t_smallint,0,1);
-   Ymin:=-1;
-   Ymax:=2;
-  end;
-  TRecord.create(t_smallint,1,1);
-
-  // Parameters interface
-  DesignInterface;
-
-  // Status bar
-  with status do
-  begin
-    create(7);
-    setPanelProp(1,400,2,1,'');
-    setPanelProp(2,120,2,1,'');
-    setPanelProp(3,200,2,1,'');
-    setPanelProp(4,200,2,1,'');
-    setPanelProp(5,120,2,1,'');
-    setPanelProp(6,120,2,1,'');
-  end;
-  hideSystemStatusBar;
-
-  // Set a gray screen
-  StimScreen.BackGroundLum:=BackgroundLuminance;
-end;
-
-////////////////////////////////////////////////////////////////////////////////
-///////////////////////////// Episode //////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-// Randomization function  XXX - COMPUTE ALL FROM THE BEGINNING AND SAVE!
-procedure SelectTrialType;
-var
-   i,j,idx,nblock,tmp:integer;
-begin
-  // increment stim count (starts at 1 for the first trial)
-  inc(cnt);
-  // number of conditions in a block
-  nblock := NStim*NRepPerBlock;
-  idx := (cnt-1) mod nblock;
-  // create/re-shuffle vector?
-  if idx=0 then
-  begin
-    if cnt=1 then
-    begin
-      // create vector
-      RandomizationVector.create(t_longint,0,nblock-1);
-      for i:=1 to NStim do
-        for j:=0 to NRepPerBlock-1 do
-          RandomizationVector[(i-1)*NRepPerBlock+j] := i;
-    end;
-    // shuffle
-    for i:=0 to nblock-1 do
-    begin
-      j := floor(nblock*Random);
-      tmp := RandomizationVector.JValue[i];
-      RandomizationVector[i] := RandomizationVector.JValue[j];
-      RandomizationVector[j] := tmp;
-    end;
-  end;
-  // get trial type
-  ICond:=RandomizationVector.JValue[idx];
-  // update stim parameters
-  Record2Par(StimTable[ICond]);
-  // save in TRecord vector and display
-  TRecord[cnt]:=ICond;
-  status.text[2] := 'Stim '+Istr(cnt)+' -> '+Istr(ICond);
-end;
-
-// Procedure defining what to do in each episode
-procedure DoEpisode;
-var
-  timestart,dd:integer;
-begin
-  // Choose the type of trial
-  SelectTrialType; // This sets ICond, increments cnt, updates TRecord, and updates stim parameters
-  
-  // Init the detector if necessary?
-  if Behavior and (RewardCriterion=2) then
-  begin
-    InitDetectorReward; // detector for immediate reward
-    VisualStim.InstallDetector(detector);
-  end
-  else if NStimPerEp>1 then
-  begin
-    InitDetectorSoundUpdate; // detector for multiple sounds per episode
-    VisualStim.InstallDetector(detector);
-  end
-  else detector.free;
-  activeReward:=TRUE;
-
-  // Prepare the stimulation
-  display('set visual stim');
-  if Visual then setVisualStim;           // Refresh the visual stimulation
-  display('set audio stim');
-  if Auditory then setAudioStim(FALSE);      // Refresh and load the auditory stimulation
-
-  // Start acquisition
-  display('Visualstim.animate');
-  timestart := timeGetTime;
-  VisualStim.animate;       // Launch the visual stimulation immediately
-
-  // Reward
-  if Behavior then
-  begin
-    RewardFunction;         // Check the number of licks and deliver the reward
-    activeReward:=TRUE;
-    LickRecord.refresh;
-    CRecord.refresh;
-  end;
-
-  // Add a delay before the next episode
-  dd := TrialInterval;               // Minimal duration of trial
-  dd := (timestart+dd)-timeGetTime;  // Remaining time to wait
-  if dd>0 then
-  begin
-    display('wait for some delay');
-    delay(dd);
-  end;
-  if Behavior AND (TaskType=2) AND (CRecord[cnt]=0) AND (PunitionDelay>0) then
-  begin
-    display('punition delay');    // punishment for false positive
-    delay(PunitionDelay);
-    dd := dd+PunitionDelay;
-  end;
-  if RandomDelay>0 then
-  begin
-    display('random delay');
-    delay(Floor(Random*RandomDelay));
-  end;
-  display('');
-  
-end;
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////// Experiment routines /////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-
-procedure RunEpisodes;
-var
-i:integer;
-MatName:string;
-tmp:real;
-Address:string;
-
-
-begin
-if VisualStim.OpenDataFile then
-  begin
-
-    // Initialize acquisition and triggers
-    Initialize_AcqAndTriggs;
-
-    // Initialize trial counter
-    cnt:=0; // cnt is incremented at each call to SelectTrialType
-    
-    // Set storage vectors
-    TRecord.modify(2,1,MaxTrialNumber);     TRecord.Xmax:=MaxTrialNumber;
-    CRecord.modify(2,1,MaxTrialNumber);     CRecord.Xmax:=MaxTrialNumber;
-    LickRecord.modify(2,1,MaxTrialNumber);  LickRecord.Xmax:=MaxTrialNumber;
-
-    // Pre-compute sounds
-    if Visual then initVisual;
-    if Auditory then initSounds;
-
-    // Estimate baseline voltage
-    if Behavior then
-      begin
-       Address:=Dev+'/AI0';
-       Ni.Ain(Address,1,tmp);
-       Vbase:=tmp*1000;
-       delay(50);
-       Ni.Ain(Address,1,tmp);
-       if(tmp*1000>Vbase) then Vbase:=tmp*1000;
-       status.text[6]:='Vbase=' + Rstr(Vbase,5,2);
-    end;
-
-    // Episodes loop
-    repeat
-      DoEpisode;                        // Launch episode
-    until (cnt=MaxTrialNumber) or Visualstim.StopStim;  // Note that cnt is incremented in SelectTrialType function
-    VisualStim.StopStim:=FALSE;
-
-    // Save parameters and computed vectors
-    SaveParametersDatafile;
-    DataFile0.AppendObject(TRecord);
-    DataFile0.AppendObject(CRecord);
-    DataFile0.AppendObject(LickRecord);
-  end;
-end;
-
-
-// Procedures for continuous recording
-var
-  MatName: string;
-
-EndProcess
-if DetectionType=1 then
-begin
-   detector.update(v1.Iend); // this also applies for episodes recording
-end;
-if ContinuousRec then
-begin
-  // save in Elphy data file
-  SaveParametersDatafile;                         // Marche pas!
-  DataFile0.AppendObject(Vdetect);     // Marche pas!
-  // save for Matlab
-  MatName:= DataPath+DataName+'.mat';
-  if Vdetect.icount>0 then Vdetect.SaveToMatFile(MatName,'PedalTimes', 7 , FALSE);
-end;
-
-procedure RunContinuous;
-begin
-  // ACQUISITION
-  // init acquisition
-  with Acquisition do
-  begin
-    Fcontinuous:=true;
-    Fdisplay:=true;
-    FimmediateDisplay:=true;
-    ChannelCount:=1;
-    with Channels[1] do
-    begin
-      PhysNum:=0;
-      UnitY:='mV';
-      setScale(0,32767,0,10000);
-      DownSamplingFactor:= 1;
-    end;
-    Fstimulate:=false;
-  end;
-  // init event detection
-  InitDetectorReward;
-  // display parameters
-  v1.Xmin:=0;
-  v1.Xmax:=10;
-  // start acquisition
-  acquisition.startAndSave;
-
-  // SAVE
-  // done in 'EndProcess' above
-end;
-
-// General experiment procedure
-procedure RunTheExp;
-begin
-  // Check current settings
-  if not CheckCurrentSettings then break;
-  // Save menu parameters to default
-  if DoMenu then SaveDefaultMenuParameters;
-  // Re-init some variables
-  InitRewardCount;
-  // Erase status information
-  for i:=1 to 7 do status.text[i]:='';
-  // Call the procedure for Episodes or Continuous recording
-  if ContinuousRec then RunContinuous else RunEpisodes;
-  // Update the generic file name
-  Acquisition.GenericFileName := DataPath+DataName+'.DAT';
-end;
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////// Program ////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-program 'Open program'
-Opening_procedure;
-
 
