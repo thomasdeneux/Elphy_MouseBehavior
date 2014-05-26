@@ -14,7 +14,7 @@ var
   maskBar: array [1..2] of Tbar;
   xCenter, yCenter: real; // center (not 0 if masking)
   gratings: array [1..2] of TLGrating;
-  shiftgrat: array [1..2] of TphaseTranslation;
+  shiftgrat: array [1..2] of TphaseTranslation; // move the grating
   bitmap: TVSbitmap;
   circle: Tdisk;
   CRecord: Tvector;
