@@ -22,10 +22,9 @@ var
   WaitVect: Tvector;
   LickRecord: Tvector;
   vfilt: Tvector;
-  NIanalog: TNIinterface;
+  NIanalog, Ni: TNIinterface;
   ParamWin: Tdialog;
   OkParamWin: boolean; // tells whether ParamWin has been initialized already
-  Ni: TNIinterface;
   FileList: Tmemo;
   SoundList,ImageList: Tmemo;
   FileNameHandle: integer;
@@ -1962,18 +1961,6 @@ begin
 
   end;
 
-  // mix sounds
-  if FALSE then
-  begin
-    for i:=2 to NStim-1 do
-    begin
-      Sounds[i].create;
-      VCopy(NIanalog.vector,Sounds[i]);
-      for k:=Sounds[1].Istart to Sounds[1].Iend do
-        Sounds[i][k] := (1-SAlpha)*Sounds[1][k] + SAlpha*Sounds[nStim][k];
-    end;
-  end;
-
   display('');
 end;
 
@@ -1989,7 +1976,10 @@ begin
     if immediateStart then
       start('')
     else
+    begin
+      status.text[4]:='Sound ready';
       start('PFI1'); // trigger=PFI1
+    end;
   end;
 end;
 
@@ -2330,7 +2320,6 @@ begin
       4: VisualStim.OnStartAnimate1:=WaitForNoLick;
     end;
   end;
-  status.text[4]:='EpisodeDuration: '+Istr(EpisodeDuration)+'ms';
   MakeDumBar(EpisodeDuration);
   if DoMask then MakeMask else for i:=1 to 2 do maskBar[i].free;
 
