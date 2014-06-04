@@ -183,10 +183,11 @@ var
   spar: TDBrecord;     // An intermediary for when reading .csv file
   ProtocolList,DetectionList,TriggerList,RewardCriterionList: Tmemo;       // Various lists
   VisualProtocols,AuditoryProtocols,VisualStimuli,AuditoryStimuli: Tmemo;
+  MaskList: word;
   AllListMemo: Tmemo; // summarizes the correspondence between list items and numbers
     
   // Local parameters
-  Dev: string;
+  Dev, PFI: string;
   rewardConversion: real;
   localpar : TDBrecord; // local parameters 
   
@@ -213,6 +214,7 @@ var
 procedure InitLocalParameters;
 begin
   localpar.create;
+  // load or create local parameter file
   if FileExists(LocalParameterFile) then
   begin
     localpar.LoadObject(LocalParameterFile);
@@ -228,6 +230,18 @@ begin
     localpar.dev := Dev;
     localpar.ParameterFile:=DefaultMenuParameterFile;
     localpar.rewardConversion:=0; // will be set later by user
+    localpar.SaveAsObject(LocalParameterFile);
+  end;
+  // read or create more recent field(s)
+  if localpar.fieldExists('PFI') then 
+    PFI := localpar.PFI
+  else
+  begin
+    InitDialogBox;
+    PFI := 'PFI1';
+    DBgetString('Sound trigger line',PFI,4);
+    ShowDialogBox;
+    localpar.PFI := PFI;
     localpar.SaveAsObject(LocalParameterFile);
   end;
 end;
@@ -823,8 +837,8 @@ begin
   end;
   FullPar2Memo;
   Datafile0.AppendObject(ppar2);
-  //Datafile0.AppendObject(ImageList);
-  //Datafile0.AppendObject(SoundList);
+  Datafile0.AppendObject(ImageList);
+  Datafile0.AppendObject(SoundList);
 end;
 
 // Load Parameters
@@ -955,6 +969,20 @@ begin
   AllListMemo.addLine('VisualProtocols');
   for i:=1 to VisualProtocols.count do AllListMemo.addLine(Istr(i)+';'+VisualProtocols.lines[i]);
 
+  with MaskList do
+  begin
+    create;
+    addLine('');
+    addLine('Grating');
+    addLine('Two gratings');
+    addLine('Image');
+    addLine('Circle');
+    addLine('Looming circle');
+    addLine('none');
+  end;  
+  AllListMemo.addLine('VisualStimuli');
+  for i:=1 to VisualStimuli.count do AllListMemo.addLine(Istr(i)+';'+VisualStimuli.lines[i]);
+
   with AuditoryStimuli do
   begin
     create;
@@ -993,6 +1021,8 @@ begin
   // init some variables which are not parameters
   rewardTotal:=0;
   DoMenu:=TRUE;
+  SoundList.create; // must be created even if it will not be used -> can be saved then
+  ImageList.create; // same
 
   // local parameters
   InitLocalParameters;
@@ -1752,10 +1782,12 @@ procedure setAudioStim(immediateStart:boolean);forward;
 procedure TestVisualStim(doAudio:boolean);
 var
   i:integer;
-  tmp:integer;
+  tmp1,tmp2:integer;
 begin
-  tmp:=StimDelay;
+  tmp1:=StimDelay;
+  tmp2:=NStimPerEp;
   StimDelay:=300;
+  NStimPerEp:=1;
   
   if DoMenu then SaveDefaultMenuParameters; 
   Initialize_AcqAndTriggs;
@@ -1776,7 +1808,8 @@ begin
   end;
   VisualStim.StopStim:=FALSE;
   
-  StimDelay:=tmp;
+  StimDelay:=tmp1;
+  NStimPerEp:=tmp2;
 end;
 
 {$EDIT AudioStim}
@@ -1976,10 +2009,7 @@ begin
     if immediateStart then
       start('')
     else
-    begin
-      status.text[4]:='Sound ready';
-      start('PFI1'); // trigger=PFI1
-    end;
+      start(PFI); // set trigger
   end;
 end;
 
