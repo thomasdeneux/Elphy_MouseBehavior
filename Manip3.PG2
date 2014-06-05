@@ -1090,12 +1090,6 @@ begin
       CheckCurrentSettings:=FALSE;
     end;
   end;
-  if Behavior and (NStim mod 2=1) then
-  begin
-    // refuse odd numbers
-    ErrorDlg('Number of stimuli must be even for behavior');
-    CheckCurrentSettings:=FALSE;
-  end;
 
 end;
 
@@ -2045,15 +2039,17 @@ begin
   Initialize_AcqAndTriggs;
   initSounds;
 
-  for i:= 1 to NStim do
+  status.text[3]:=('Test Sounds');
+
+  for i:= 1 to  NStim  do  
   begin
-    if i>1 then delay(round(SDuration+300));
+    if i>1 then delay(round(SDuration+300) );  
     display(Istr(i));
     if ProtocolType=2 then 
       // untwist twisted sounds for "Double unimodal ambiguities" protocol!!! 
       if i<=NStim/2 then ICond:=Floor(NStim/2)+1-i else ICond:=NStim+1-(i-Floor(NStim/2)) 
     else
-      ICond:=i;
+      ICond:=i; 
     Record2Par(StimTable[ICond]);
     setAudioStim(TRUE);
     if Visualstim.StopStim then break;
@@ -2272,7 +2268,7 @@ begin
   ref:=FALSE;
   NREF:=floor(RefractoryTime/del);
   repeat
-    Ni.Ain(Address,2,LickV);
+    Ni.Ain(Address,1,LickV);
     if LickV>=thresh then NC:=NC+1;
     if NC>=NREF then ref:=TRUE;
     if LickV<thresh then NC:=0;
