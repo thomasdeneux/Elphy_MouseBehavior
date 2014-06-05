@@ -1810,8 +1810,8 @@ begin
   
   if DoMenu then SaveDefaultMenuParameters; 
   Initialize_AcqAndTriggs;
-  initVisual;
-  if doAudio then initSounds;
+  if Visual then initVisual;
+  if Auditory and doAudio then initSounds;
   VisualStim.OnStartAnimate1:=NIL;
   VisualStim.OnStartAnimate2:=NIL;
 
