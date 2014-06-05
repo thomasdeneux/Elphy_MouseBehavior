@@ -16,6 +16,7 @@ var
   gratings: array [1..2] of TLGrating;
   shiftgrat: array [1..2] of TphaseTranslation; // move the grating
   bitmap: TVSbitmap;
+  bstream: TVSstream;
   circle: Tdisk;
   CRecord: Tvector;
   TRecord: Tvector;
@@ -28,8 +29,8 @@ var
   FileList: Tmemo;
   SoundList,ImageList: Tmemo;
   FileNameHandle: integer;
-  Sounds: array [1..100] of TVector;
-  LoadedSounds: array [1..100] of TVector;
+  Sounds: array [1..10000] of TVector;
+  LoadedSounds: array [1..10000] of TVector;
   MaxSoundDuration: real;
   detector: Tdetector;
   Vdetect: Tvector;
@@ -154,7 +155,7 @@ var
   VStimType: word; // no menu
   BackgroundLuminance: integer;
   KeepGratingOn,SquareWaveGrating: boolean;
-  DoMask: boolean; 
+  MaskType: word; 
   VAlpha, VOri, VOri2: real; // no menu
   VSize, VSize2, VSpeed, VLum: real; 
   ImageListFile: string;  
@@ -183,7 +184,7 @@ var
   spar: TDBrecord;     // An intermediary for when reading .csv file
   ProtocolList,DetectionList,TriggerList,RewardCriterionList: Tmemo;       // Various lists
   VisualProtocols,AuditoryProtocols,VisualStimuli,AuditoryStimuli: Tmemo;
-  MaskList: word;
+  MaskList: Tmemo;
   AllListMemo: Tmemo; // summarizes the correspondence between list items and numbers
     
   // Local parameters
@@ -296,7 +297,7 @@ begin
   BackgroundLuminance:=25;
   KeepGratingOn:=FALSE;
   SquareWaveGrating:=FALSE;
-  DoMask:=FALSE;
+  MaskType:=0;
   // Stim parameters
   // (visual stim)
   VStimType:=1;
@@ -377,7 +378,7 @@ begin
   parlist.BackgroundLuminance := db_integer;
   parlist.KeepGratingOn := db_boolean;
   parlist.SquareWaveGrating := db_boolean;
-  parlist.DoMask := db_boolean;
+  parlist.MaskType := db_integer;
   parlist.VAlpha := db_real;
   parlist.VOri := db_real;
   parlist.VOri2 := db_real;
@@ -463,7 +464,7 @@ begin
     Addline('BackgroundLuminance'+';'+Istr(BackgroundLuminance));
     Addline('KeepGratingOn'+';'+Bstr(KeepGratingOn));
     Addline('SquareWaveGrating'+';'+Bstr(SquareWaveGrating));
-    Addline('DoMask'+';'+Bstr(DoMask));
+    Addline('MaskType'+';'+Istr(MaskType));
     Addline('VAlpha'+';'+Rstr(VAlpha));
     Addline('VOri'+';'+Rstr(VOri));
     Addline('VOri2'+';'+Rstr(VOri2));
@@ -567,7 +568,7 @@ begin
   if spar.fieldExists('BackgroundLuminance') then BackgroundLuminance:=spar.BackgroundLuminance;
   if spar.fieldExists('KeepGratingOn') then KeepGratingOn:=spar.KeepGratingOn;
   if spar.fieldExists('SquareWaveGrating') then SquareWaveGrating:=spar.SquareWaveGrating;
-  if spar.fieldExists('DoMask') then DoMask:=spar.DoMask;
+  if spar.fieldExists('MaskType') then MaskType:=spar.MaskType;
   if spar.fieldExists('VAlpha') then VAlpha:=spar.VAlpha;
   if spar.fieldExists('VOri') then VOri:=spar.VOri;
   if spar.fieldExists('VOri2') then VOri2:=spar.VOri2;
@@ -691,7 +692,7 @@ begin
   mpar2.BackgroundLuminance:=BackgroundLuminance;
   mpar2.KeepGratingOn:=KeepGratingOn;
   mpar2.SquareWaveGrating:=SquareWaveGrating;
-  mpar2.DoMask:=DoMask;
+  mpar2.MaskType:=MaskType;
   // Stim parameters
   // (visual stim)
   mpar2.VSize:=VSize;
@@ -718,6 +719,8 @@ begin
 end;
 
 procedure TDBrecord2MenuPar;
+var
+  doMask: boolean;
 begin
   // Global parameters
   // (general)
@@ -751,7 +754,7 @@ begin
   if mpar2.fieldExists('BackgroundLuminance') then BackgroundLuminance:=mpar2.BackgroundLuminance else BackgroundLuminance:=25;
   if mpar2.fieldExists('KeepGratingOn') then KeepGratingOn:=mpar2.KeepGratingOn else KeepGratingOn:=FALSE;
   if mpar2.fieldExists('SquareWaveGrating') then SquareWaveGrating:=mpar2.SquareWaveGrating else SquareWaveGrating:=FALSE;
-  if mpar2.fieldExists('DoMask') then DoMask:=mpar2.DoMask else DoMask:=FALSE;
+  if mpar2.fieldExists('MaskType') then MaskType:=mpar2.MaskType else if mpar2.fieldExists('DoMask') then begin doMask:=mpar2.DoMask; MaskType:=Ord(doMask); end else MaskType:=0;
   // Stim parameters
   // (visual stim)
   VSize:=mpar2.VSize;
@@ -972,17 +975,13 @@ begin
   with MaskList do
   begin
     create;
-    addLine('');
-    addLine('Grating');
-    addLine('Two gratings');
-    addLine('Image');
-    addLine('Circle');
-    addLine('Looming circle');
     addLine('none');
+    addLine('4:3');
+    addLine('24:13');
   end;  
-  AllListMemo.addLine('VisualStimuli');
-  for i:=1 to VisualStimuli.count do AllListMemo.addLine(Istr(i)+';'+VisualStimuli.lines[i]);
-
+  AllListMemo.addLine('MaskList');
+  for i:=1 to MaskList.count do AllListMemo.addLine(Istr(i)+';'+MaskList.lines[i]);
+  
   with AuditoryStimuli do
   begin
     create;
@@ -1250,7 +1249,7 @@ begin
       getInteger('Background Luminance',BackgroundLuminance,5);
       getBoolean('Keep grating on',KeepGratingOn);
       getBoolean('Square wave grating',SquareWaveGrating);
-      getBoolean('Bottom-left corner only',DoMask);
+      getstringList1('Bottom-left mask',MaskList,MaskType);
       getReal('S+ parameter',alpha1,5,2);
       getReal('S- parameter',alpha2,5,2);
       getReal('Object Size',VSize,5,1);
@@ -1372,11 +1371,11 @@ begin
     205: OpenCloseValve;
     206: TestVisualStim(TRUE);
     // Visual parameters
-    301: ChooseImages;
+    301: begin ChooseImages; ParChg:=true; end;
     302: TestVisualStim(FALSE);
     // Sound parameters
     401: begin ChooseSounds; ParChg:=true; end;
-    402: begin TestSounds; ParChg:=true; end;
+    402: TestSounds;
     // Otherwise, some parameter has probably been changed
     else ParChg:=true;
   end;
@@ -1412,8 +1411,11 @@ begin
   // Mask mode: center in the bottom-left part of the screen
   W:=stimScreen.width;
   H:=stimScreen.height;
-  xCenter:=W*(-0.5+0.3); 
   yCenter:=H*(-0.5+0.3); 
+  case MaskType of
+    2: xCenter:=W*(-0.5+0.3);       // 4:3
+    3: xCenter:=W*(-0.5+0.3*18/13); // 24:13
+  end;
   // create the mask (2 rectangles)
   for i:=1 to 2 do
   with maskBar[i] do
@@ -1528,7 +1530,8 @@ begin
     dy:=ImageHeight;
   end;
 
-  // create stim (TOnOff object)and assign the bar to it
+  
+  {// create stim (TOnOff object)and assign the bitmap to it
   with stim do
   begin
     create;
@@ -1543,10 +1546,32 @@ begin
       DtOff:= 0;
     setSyncPulse(0);
     setVisualObject(bitmap);
-  end;
+  end;}
+  
+  // create bstream to show images (and change them if necessary)
+  with bstream do
+  begin
+    create;
+    AddImage(ImageList.lines[ImageIdx]);
+    // additional images: this is tricky, need to read TRecord in advance
+    for i:=2 to NStimPerEp do 
+    begin
+      j:=TRecord.JValue[cnt+(i-1)];
+      k:=StimTable[j].ImageIdx;
+      AddImage(ImageList.lines[k]);
+    end;
+    StartTime:=StimDelay/1000;
+    DtOn:=VisualStimDuration/1000;
+    if NStimPerEp>1 then
+    begin
+      DtOff:=(TrialInterval-VisualStimDuration)/1000;
+      CycleCount:=NStimPerEp;
+    end;
+    setVisualObject(bitmap);
+  end; 
 end;
 
-procedure ChangeImage;
+{procedure ChangeImage;
 begin
   with bitmap do
   begin
@@ -1557,7 +1582,7 @@ begin
       ImageWidth:=VSize/height*width;
     ImageHeight:=ImageWidth/width*height;
   end;
-end;
+end;}
 
 // Luminance circle
 procedure MakeLuminanceCircle;
@@ -1753,7 +1778,7 @@ begin
   StimScreen.BackGroundLum:=BackgroundLuminance;
   // Mask (or set center coordinates to zero)
   // If no mask, just set the center to center of screen
-  if DoMask then
+  if MaskType>1 then
     MakeMask
   else
   begin
@@ -2198,7 +2223,6 @@ begin
   if n<NStimPerEp then
   begin
     SelectTrialType;
-    if Visual then ChangeImage;
     if Auditory then setAudioStim(FALSE);
   end;
 end;
@@ -2212,12 +2236,12 @@ begin
     create;
     // detector events are initiated by a timer
     if Auditory then
-      if Visual then
-        StimDuration:=max(VisualStimDuration+RewardDelay,MaxSoundDuration)
-      else
+      if Visual then 
+        StimDuration:=max(MaxSoundDuration,VisualStimDuration+RewardDelay) 
+      else 
         StimDuration:=MaxSoundDuration
     else
-      StimDuration:=VisualStimDuration+RewardDelay; // initial check made sure this is <= TrialInterval+100ms
+      StimDuration:=VisualStimDuration+RewardDelay;
     initTimer(v1,TrialInterval,StimDelay+StimDuration+50);
     AddEvent(DetectorEventStimUpdate,0);
   end;
@@ -2351,7 +2375,7 @@ begin
     end;
   end;
   MakeDumBar(EpisodeDuration);
-  if DoMask then MakeMask else for i:=1 to 2 do maskBar[i].free;
+  if MaskType>1 then MakeMask else for i:=1 to 2 do maskBar[i].free;
 
   // Set input parameters
   with Acquisition do
@@ -2481,42 +2505,46 @@ end;
 ///////////////////////////// Episode //////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-// Randomization function  XXX - COMPUTE ALL FROM THE BEGINNING AND SAVE!
-procedure SelectTrialType;
+// Randomization function
+procedure BuildTRecord;
 var
    i,j,idx,nblock,tmp:integer;
 begin
+  // Create vector with all conditions repeated NRepPerBlock times
+  nblock := NStim*NRepPerBlock;
+  RandomizationVector.create(t_longint,0,nblock-1);
+  for i:=1 to NStim do
+    for j:=0 to NRepPerBlock-1 do
+      RandomizationVector[(i-1)*NRepPerBlock+j] := i;
+  // Loop on trial number
+  for cnt:=1 to MaxTrialNumber do
+  begin
+    idx := (cnt-1) mod nblock;
+    // re-shuffle vector?
+    if idx=0 then
+      for i:=0 to nblock-1 do
+      begin
+        j := floor(nblock*Random);
+        tmp := RandomizationVector.JValue[i];
+        RandomizationVector[i] := RandomizationVector.JValue[j];
+        RandomizationVector[j] := tmp;
+      end;
+    // get trial type
+    TRecord[cnt]:=RandomizationVector.JValue[idx];
+  end;
+  cnt:=0; // reinit trial counter
+end;
+
+// Select trial type, update stim parameters
+procedure SelectTrialType;
+begin
   // increment stim count (starts at 1 for the first trial)
   inc(cnt);
-  // number of conditions in a block
-  nblock := NStim*NRepPerBlock;
-  idx := (cnt-1) mod nblock;
-  // create/re-shuffle vector?
-  if idx=0 then
-  begin
-    if cnt=1 then
-    begin
-      // create vector
-      RandomizationVector.create(t_longint,0,nblock-1);
-      for i:=1 to NStim do
-        for j:=0 to NRepPerBlock-1 do
-          RandomizationVector[(i-1)*NRepPerBlock+j] := i;
-    end;
-    // shuffle
-    for i:=0 to nblock-1 do
-    begin
-      j := floor(nblock*Random);
-      tmp := RandomizationVector.JValue[i];
-      RandomizationVector[i] := RandomizationVector.JValue[j];
-      RandomizationVector[j] := tmp;
-    end;
-  end;
   // get trial type
-  ICond:=RandomizationVector.JValue[idx];
+  ICond:=TRecord.JValue[cnt];
   // update stim parameters
   Record2Par(StimTable[ICond]);
-  // save in TRecord vector and display
-  TRecord[cnt]:=ICond;
+  // display
   status.text[2] := 'Stim '+Istr(cnt)+' -> '+Istr(ICond);
 end;
 
@@ -2534,7 +2562,7 @@ begin
     InitDetectorReward; // detector for immediate reward
     VisualStim.InstallDetector(detector);
   end
-  else if NStimPerEp>1 then
+  else if (NStimPerEp>1) and Auditory then
   begin
     InitDetectorStimUpdate; // detector for multiple images/sounds per episode
     VisualStim.InstallDetector(detector);
@@ -2547,6 +2575,13 @@ begin
   if Visual then setVisualStim;           // Refresh the visual stimulation
   display('set audio stim');
   if Auditory then setAudioStim(FALSE);      // Refresh and load the auditory stimulation
+
+  // If NStimPerEp>1, cnt will be updated by the detector BUT the detector is 
+  // installed ONLY if there is Auditory stimulation (it is best not to use 
+  // detectors when possible, because they slow down the visual stimulation)
+  // If there is only Visual stimulation, we need to update cnt "by hand": This 
+  // line needs to be executed AFTER setVisualStim (which uses cnt)
+  if (NStimPerEp>1) and (not Auditory) then cnt:=cnt+(NStimPerEp-1);
 
   // Start acquisition
   display('Visualstim.animate');
@@ -2605,14 +2640,15 @@ if VisualStim.OpenDataFile then
     // Initialize acquisition and triggers
     Initialize_AcqAndTriggs;
 
-    // Initialize trial counter
-    cnt:=0; // cnt is incremented at each call to SelectTrialType
-    
-    // Set storage vectors
+    // Set storage vectors (and precompute all condition numbers)
     TRecord.modify(2,1,MaxTrialNumber);     TRecord.Xmax:=MaxTrialNumber;
+    BuildTRecord;
     CRecord.modify(2,1,MaxTrialNumber);     CRecord.Xmax:=MaxTrialNumber;
     LickRecord.modify(2,1,MaxTrialNumber);  LickRecord.Xmax:=MaxTrialNumber;
 
+    // Initialize trial counter
+    cnt:=0; // cnt is incremented at each call to SelectTrialType
+    
     // Pre-compute sounds
     if Visual then initVisual;
     if Auditory then initSounds;
