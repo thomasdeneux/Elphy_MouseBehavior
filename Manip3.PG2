@@ -1362,6 +1362,7 @@ procedure ChooseSounds;forward;
 procedure TestSounds;forward;
 procedure OpenValve(volume:real);forward;
 procedure OpenCloseValve;forward;
+procedure CalibDLPImage;forward;
 
 // Update parameters display, including the name of the parameter file
 procedure ParamWinUpdate;
@@ -1371,6 +1372,7 @@ begin
   ParamWin.ModifyText(FileNameHandle,str);
   ParamWin.update;
 end;
+
 
 // Callback procedure for the ParamWin dialog (parameters + start)
 procedure ParamWinCallback(N:integer);
@@ -1727,7 +1729,7 @@ begin
 end;
 
 // ZP for DLP photostimulation (squares)
-procedure MakeOneofTwoRectangles(ObjValue:real);
+procedure MakeOneofTwoRectangles;
 begin
   // create the bar (Tbar object) 
   with bar do
@@ -1819,8 +1821,7 @@ begin
     3: MakeShiftingGratings(2);
     4: MakeBitmap;
     5: MakeLuminanceCircle;
-    6: MakeLoomingCircle;
-    // 7: corresponds to 'none'
+    6: MakeLoomingCircle;    // 7: corresponds to 'none'
     8: MakeOneofTwoRectangles;    //actually squares
   end;
 end;
@@ -1898,7 +1899,7 @@ var
   x1,y1,s1,x2,y2,s2,x3,y3,s3,k,tmp:integer; 
 begin
 
-  SaveCurrentSettings;
+  if DoMenu then SaveDefaultMenuParameters; 
   Initialize_AcqAndTriggs;
   initVisual;
   VisualStim.OnStartAnimate1:=NIL;
