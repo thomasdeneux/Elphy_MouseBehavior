@@ -3,8 +3,6 @@
 ///////////////////////////// Variables other than parameters //////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-
-
 const
   Sound_Sampling_Frequency= 192000;    // Hz
   //Lick_Sampling_Frequency = 1000;      // Hz
@@ -1616,6 +1614,8 @@ end;}
 
 // Luminance circle
 procedure MakeLuminanceCircle;
+var
+  Vfreq:real;
 begin
   // create circle (Tdisk object)
   with circle do
@@ -1633,8 +1633,18 @@ begin
   begin
     create;
     StartTime:=StimDelay/1000; // secondes
-    DtON:= VisualStimDuration/1000;
-    DtOff:= 0;
+    Vfreq:=Vspeed;
+    if Vfreq=0 then
+    begin
+      DtON:= VisualStimDuration/1000;
+      DtOff:= 0;
+    end
+    else
+    begin
+      DtON:=1/Vfreq*0.5;
+      DtOff:=1/Vfreq*0.5;
+      CycleCount:=Floor(VisualStimDuration/1000*Vfreq);
+    end;
     setSyncPulse(0);
     setVisualObject(circle);
   end;
