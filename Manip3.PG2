@@ -1641,8 +1641,8 @@ begin
     end
     else
     begin
-      DtON:=1/Vfreq*0.5;
-      DtOff:=1/Vfreq*0.5;
+      DtON:=1/60;           // make the shortest possible light pulse (60Hz is max frequency right now)
+      DtOff:=(1/Vfreq-DtON);     // the rest of the cycle is off
       CycleCount:=Floor(VisualStimDuration/1000*Vfreq);
     end;
     setSyncPulse(0);
@@ -2555,7 +2555,7 @@ begin
     Fcontinuous:=false;
     if TRUE then
     begin
-      ChannelCount:=1; //2;
+      ChannelCount:=2; //2;
       with Channels[1] do
       begin
         if Behavior then
@@ -2570,6 +2570,16 @@ begin
         setScale(0,32767,0,10000);
         DownSamplingFactor:= 1;
       end;
+      
+      with Channels[2] do    //can be used for recording output of photodetector, to test temporal structure of visual stimuli
+      begin
+       PhysNum:=2;
+       UnitY:='mV';
+       setScale(0,32767,0,10000);
+       DownSamplingFactor:= 1;
+      end ;
+      
+      
       Fstimulate:=true;
     end
     else
