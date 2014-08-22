@@ -1342,7 +1342,8 @@ begin
    DefineWindow(0,floor(pageheight*3/4),pagewidth-400,pageheight);
    DefineWindow(pagewidth-400,0,pagewidth,pageheight);
    addobject(1,v[1]);   vfilt.create;   addobject(1,vfilt);
-   addobject(2,v[4]); // ephys channel
+   addobject(1,v[2]);
+   addobject(2,v[3]); // ephys channel
    addobject(3,LickRecord);
    addobject(4,CRecord);
    PageFont := true;
@@ -2575,13 +2576,13 @@ begin
       
       with Channels[2] do    //can be used for recording output of photodetector, to test temporal structure of visual stimuli
       begin
-       PhysNum:=2;
+       PhysNum:=2; //put to 0 when not in use
        UnitY:='mV';
        setScale(0,32767,0,10000);
        DownSamplingFactor:= 1;
       end ;
       
-      with Channels[3] do    //can be used for recording output of photodetector, to test temporal structure of visual stimuli
+      with Channels[3] do    //for ephys recording
       begin
        PhysNum:=3;
        UnitY:='mV';
@@ -2643,10 +2644,16 @@ begin
   else
     begin v1.Ymin:=-500; v1.Ymax:=500; end;
     
-  v4.Xmin:=0;
-  v4.Xmax:=EpisodeDuration;
-  v4.Ymin:=-10; //CHANGE if ephys amplification changed
-  v4.Ymax:=10; //CHANGE if ephys amplification changed
+  v3.Xmin:=0;
+  v3.Xmax:=EpisodeDuration;
+  v3.Ymin:=-10; //CHANGE if ephys amplification changed
+  v3.Ymax:=10; //CHANGE if ephys amplification changed
+  
+  
+  v2.Xmin:=0;
+  v2.Xmax:=EpisodeDuration;
+  v2.Ymin:=-10; //CHANGE if ephys amplification changed
+  v2.Ymax:=10; //CHANGE if ephys amplification changed
 
 end;
 
