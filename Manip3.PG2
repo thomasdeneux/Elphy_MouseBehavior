@@ -869,11 +869,11 @@ var
   ext:string;
 begin
   // Select file
-  if length(FileName)=0 then
-  begin
+  //if length(FileName)=0 then
+  //begin
     FileName:=ParameterDir+'*.*';
     ChooseFile(FileName,'Choose parameter file');
-  end;
+  //end;
 
   // Memorize file name (folder, base and full file)
   SplitFileName(FileName,str1,str2,ext);
@@ -890,7 +890,7 @@ begin
   ParameterChanged:=false;
 
   // Load the parameters
-  if DoMenu then
+if DoMenu then
   begin
     mpar2.create;
     mpar2.LoadObject(FileName);
@@ -1321,7 +1321,7 @@ begin
   end;
 
   // Display the parameters window
-  MGpage['Behavior'].adddialog(4,ParamWin);
+  MGpage['Behavior'].adddialog(5,ParamWin);
 end;
 
 // Build the GUI
@@ -1336,13 +1336,15 @@ begin
   begin
    color := rgb(250,250,250);
    destroyAllwindows;
-   DefineWindow(0,0,pagewidth-400,floor(pageheight/2));
-   DefineWindow(0,floor(pageheight/2),pagewidth-400,floor(pageheight*3/4));
+   DefineWindow(0,0,pagewidth-400,floor(pageheight/4));
+   DefineWindow(0,floor(pageheight/4),pagewidth-400,floor(pageheight*2/4));
+   DefineWindow(0,floor(pageheight*2/4),pagewidth-400,floor(pageheight*3/4));
    DefineWindow(0,floor(pageheight*3/4),pagewidth-400,pageheight);
    DefineWindow(pagewidth-400,0,pagewidth,pageheight);
    addobject(1,v[1]);   vfilt.create;   addobject(1,vfilt);
-   addobject(2,LickRecord);
-   addobject(3,CRecord);
+   addobject(2,v[4]); // ephys channel
+   addobject(3,LickRecord);
+   addobject(4,CRecord);
    PageFont := true;
    scalecolor := rgb(10,10,10);
   end;
@@ -2555,7 +2557,7 @@ begin
     Fcontinuous:=false;
     if TRUE then
     begin
-      ChannelCount:=2; //2;
+      ChannelCount:=3; //2;
       with Channels[1] do
       begin
         if Behavior then
@@ -2576,6 +2578,16 @@ begin
        PhysNum:=2;
        UnitY:='mV';
        setScale(0,32767,0,10000);
+       DownSamplingFactor:= 1;
+      end ;
+      
+      with Channels[3] do    //can be used for recording output of photodetector, to test temporal structure of visual stimuli
+      begin
+       PhysNum:=3;
+       UnitY:='mV';
+       setScale(0,32767,0,10); // 10000 mV (the max) at the input to the NI card corresponds to 10 mV in the brain 
+       //(before x1000 amplification by the extracellular headstage and the BVC-700A)
+       // CHANGE this if intracellular headstage used, or any amplification setting is changed
        DownSamplingFactor:= 1;
       end ;
       
@@ -2630,6 +2642,11 @@ begin
     end
   else
     begin v1.Ymin:=-500; v1.Ymax:=500; end;
+    
+  v4.Xmin:=0;
+  v4.Xmax:=EpisodeDuration;
+  v4.Ymin:=-10; //CHANGE if ephys amplification changed
+  v4.Ymax:=10; //CHANGE if ephys amplification changed
 
 end;
 
