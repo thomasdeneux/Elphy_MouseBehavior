@@ -37,7 +37,7 @@ var
   level:TDBRecord; 
   RandomizationVector: TVector;
   
-  vect,kernel: TVector;
+  vect,ImpResp,vect2,fft1,fft2,fft3: TVector;
   Go:integer;
   res: integer;
   gh,Vbase:real;
@@ -161,12 +161,14 @@ var
   VSize, VSize2, VSpeed, VLum: real; 
   ImageListFile: string;  
   ImageIdx: integer;
+  
   // (audio stim)
   SStimType: word; // no menu
   SFreq, SFreq2: real; // no menu
   SLevelDB, SLevelDB2, SAlpha, SDuration, SDelay: real;
   SoundListFile: string;
   SoundIdx: integer;
+  Equalization: boolean;
   
   // "StimGen" parameters
   // (general)
@@ -325,6 +327,8 @@ begin
   SDelay:=0;
   SoundListFile:='';
   SoundIdx:=0;
+  Equalization:=TRUE;
+  
   // StimGen parameters
   // (general)
   ProtocolType:=1;
@@ -407,6 +411,7 @@ begin
   parlist.SDelay := db_real;
   parlist.SoundListFile := db_string;
   parlist.SoundIdx := db_integer;
+  parlist.Equalization := db_boolean;
 end;
 
 // Init the stim table
@@ -495,6 +500,7 @@ begin
     Addline('SDelay'+';'+Rstr(SDelay));
     AddLine('SoundListFile'+';'+SoundListFile);
     AddLine('SoundIdx'+';'+Istr(SoundIdx));  
+    Addline('Equalization'+';'+Bstr(Equalization));
     
     // Multiple values in StimTable
     for j:=1 to StimTable.ColCount do
@@ -520,12 +526,18 @@ procedure AssignRecord(var spar:TDBrecord;fieldname:string;valuestr:string);
 var 
   vtype: integer;
 begin
-  vtype := ParList.ImplicitValue[fieldname];
-  case vtype of
-    db_boolean: spar.ImplicitValue[fieldname]:=((valuestr='TRUE') OR (valuestr='true'));
-    db_integer: spar.ImplicitValue[fieldname]:=ValInt(valuestr);
-    db_real:    spar.ImplicitValue[fieldname]:=ValReal(valuestr);
-    db_string:  spar.ImplicitValue[fieldname]:=valuestr;
+  // Some old parameters do not exist any more!!
+  if fieldname='DoMask' then
+    ErrorDlg('Parameter name "'+fieldname+'" does not exist any more')
+  else
+  begin
+    vtype := ParList.ImplicitValue[fieldname];
+    case vtype of
+      db_boolean: spar.ImplicitValue[fieldname]:=((valuestr='TRUE') OR (valuestr='true'));
+      db_integer: spar.ImplicitValue[fieldname]:=ValInt(valuestr);
+      db_real:    spar.ImplicitValue[fieldname]:=ValReal(valuestr);
+      db_string:  spar.ImplicitValue[fieldname]:=valuestr;
+    end;
   end;
 end;
 procedure AssignStimTable(i:integer;fieldname:string;value:string);
@@ -601,6 +613,7 @@ begin
   if spar.fieldExists('SDelay') then SDelay:=spar.SDelay;
   if spar.fieldExists('SoundListFile') then SoundListFile:=spar.SoundListFile; 
   if spar.fieldExists('SoundIdx') then SoundIdx:=spar.SoundIdx;
+  if spar.fieldExists('Equalization') then Equalization:=spar.Equalization;
 end;
 
 // Load parameters from TMemo object
@@ -730,6 +743,7 @@ begin
   mpar2.f1:=f1; 
   mpar2.f2:=f2;
   mpar2.SoundListFile:=SoundListFile;
+  mpar2.Equalization:=Equalization;
 end;
 
 procedure TDBrecord2MenuPar;
@@ -779,6 +793,7 @@ begin
   if mpar2.fieldExists('SDelay') then SDelay:=mpar2.SDelay else SDelay:=0;
   if mpar2.fieldExists('SFreq') then SFreq:=mpar2.SFreq else SFreq:=8000;
   if mpar2.fieldExists('SLevelDB') then SLevelDB:=mpar2.SLevelDB else if mpar2.SLevel<>0 then SLevelDB:=100+Ln(mpar2.SLevel)/ln(10)*20 else SLevelDB:=70;
+  if mpar2.fieldExists('Equalization') then Equalization:=mpar2.Equalization else Equalization:=TRUE;
   
   // StimGen parameters
   // (general)
@@ -1296,6 +1311,7 @@ begin
       getString('Sound list file',SoundListFile,30);
       getCommandA('Load sounds', Go,401);
       getCommandA('Test sounds', Go,402);
+      getBoolean('Equalization',Equalization);
     end else
     begin
       // Very simplified menu with no protocol parameter
@@ -1883,7 +1899,7 @@ begin
     ICond:=i;
     Record2Par(StimTable[i]); // update parameters for condition i
     setVisualStim;            // set stim
-    if doAudio then setAudioStim(FALSE); 
+    if Auditory and doAudio then setAudioStim(FALSE); 
     VisualStim.animate;       // play stim
     if Visualstim.StopStim then break;
   end;
@@ -2066,11 +2082,12 @@ begin
   if (SoundListFile<>'') then LoadSounds;
 
   // load equalization parameters
-  if FALSE then
+  if Equalization then
   begin
-    kernel.create;
-    kernel.loadObject('D:\Elphy Programs\ImpulseResponse.param');
+    ImpResp.create;
+    ImpResp.loadObject('D:\Elphy Programs\ImpulseResponse.param');
     level.create;
+    level.loadObject('D:\Elphy Programs\CalibratedLevel.param');
   end;
 
   // compute sounds (or copy loaded sounds) and memorize max sound duration
@@ -2163,13 +2180,27 @@ begin
     MaxSoundDuration:=max(MaxSoundDuration,SDuration);
     
     // equalization
-    if FALSE then
+    if Equalization then
     begin
-      vect.create;
-      VCopy(Sounds[i],vect);
-      kernel.dx := Sounds[i].dx;
-      Convolve(vect,kernel,Sounds[i]);
-      VMulNum(Sounds[i],Exp((5-level.dB0/20)*Ln(10)));
+      vect.create; vect2.create; fft1.create; fft2.create; fft3.create; 
+      VCopy(Sounds[i],vect);     
+      VCopy(Sounds[i],vect2);
+      vect2.fill(0);  
+      ImpResp.dx := Sounds[i].dx;
+      vect.dx := Sounds[i].dx;
+      vect2.dx := Sounds[i].dx;
+      VmoveData(ImpResp,ImpResp.Xstart,ImpResp.Xend,vect2,vect2.Xstart); 
+      DFT(vect,fft1,TRUE);
+      DFT(vect2,fft2,TRUE);
+      Vmodulus(fft2,fft3); 
+      VMulNum(fft3,1/fft3.Rvalue[level.f0/192000]);
+      fft3.fill1(1,0,500/192000);
+      fft3.fill1(1,60000/192000,132000/192000);
+      fft3.fill1(1,1910500/192000,1);
+      Vdiv(fft1,fft3,fft1);
+      DFT(fft1,vect,FALSE);
+      VMulNum(vect,Exp(ln(10)*((100-level.dB0)/20)));
+      VrealPart(vect,Sounds[i]);
     end;
 
     // make sure the vector finishes with a zero
@@ -2207,7 +2238,7 @@ begin
 
   for i:= 1 to  NStim  do  
   begin
-    if i>1 then delay(round(SDuration+300) );  
+    if i>1 then delay(round(MaxSoundDuration+300) );  
     display(Istr(i));
     if ProtocolType=2 then 
       // untwist twisted sounds for "Double unimodal ambiguities" protocol!!! 
@@ -2623,6 +2654,19 @@ begin
   // randomize seed for RNG
   Randomize; 
   
+  // Status bar (create it first, so that it can be used to display debugging information for the next initializations)
+  with status do
+  begin
+    create(7);
+    setPanelProp(1,400,2,1,'');
+    setPanelProp(2,120,2,1,'');
+    setPanelProp(3,200,2,1,'');
+    setPanelProp(4,200,2,1,'');
+    setPanelProp(5,120,2,1,'');
+    setPanelProp(6,120,2,1,'');
+  end;
+  hideSystemStatusBar;
+
   // Init experiment parameters and other variables
   InitSettings;
 
@@ -2643,19 +2687,6 @@ begin
 
   // Parameters interface
   DesignInterface;
-
-  // Status bar
-  with status do
-  begin
-    create(7);
-    setPanelProp(1,400,2,1,'');
-    setPanelProp(2,120,2,1,'');
-    setPanelProp(3,200,2,1,'');
-    setPanelProp(4,200,2,1,'');
-    setPanelProp(5,120,2,1,'');
-    setPanelProp(6,120,2,1,'');
-  end;
-  hideSystemStatusBar;
 
   // Set a gray screen
   StimScreen.BackGroundLum:=BackgroundLuminance;
