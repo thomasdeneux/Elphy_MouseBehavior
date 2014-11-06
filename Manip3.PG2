@@ -1162,46 +1162,52 @@ begin
       else
         begin ObjValueV:=(i-1)/(NStim-1); ObjValueS:=(j-1)/(NStim-1); end;
       // Visual stim
-      case VProtocolType of
-        // Star-Square
-        1: begin VStimType:=1; stimtable[i].VAlpha:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; end;
-        // Gratings & Amplitude morphing
-        2: begin VStimType:=3; VOri:=alpha1; VOri2:=alpha2; stimtable[i].VAlpha:=ObjValueV; end;
-        // Loaded images
-        3: begin VStimType:=4; stimtable[i].ImageIdx:=i; end;
-        // Luminance Circles
-        4: begin VStimType:=5; stimtable[i].VLum:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; end;
-        // Gratings & Orientation morphing
-        5: begin VStimType:=2; stimtable[i].VOri:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; end;
-        // Looming Circle
-        6: begin VStimType:=6; stimtable[i].VSize:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; stimtable[i].VSize2:=alpha2*(1-ObjValueV)+alpha1*ObjValueV; end;
-        //6: begin VStimType:=6; stimtable[i].VSize:=Exp(Ln(alpha1)*(1-ObjValueV)+Ln(alpha2)*ObjValueV); stimtable[i].VSize2:=Exp(Ln(alpha2)*(1-ObjValueV)+Ln(alpha1)*ObjValueV); end;
-        // none
-        7: VStimType:=7;
-        // Rectangle at 2 positions
-        8: begin VStimType:=8; stimtable[i].Vx:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; stimtable[i].Vy:=beta1*(1-ObjValueV)+beta2*ObjValueV; end; 
-        // Circles at 2 positions
-        9: begin VStimType:=5; stimtable[i].Vx:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; stimtable[i].Vy:=beta1*(1-ObjValueV)+beta2*ObjValueV; end; 
-      end;
+      if Visual then
+        case VProtocolType of
+          // Star-Square
+          1: begin VStimType:=1; stimtable[i].VAlpha:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; end;
+          // Gratings & Amplitude morphing
+          2: begin VStimType:=3; VOri:=alpha1; VOri2:=alpha2; stimtable[i].VAlpha:=ObjValueV; end;
+          // Loaded images
+          3: begin VStimType:=4; stimtable[i].ImageIdx:=i; end;
+          // Luminance Circles
+          4: begin VStimType:=5; stimtable[i].VLum:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; end;
+          // Gratings & Orientation morphing
+          5: begin VStimType:=2; stimtable[i].VOri:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; end;
+          // Looming Circle
+          6: begin VStimType:=6; stimtable[i].VSize:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; stimtable[i].VSize2:=alpha2*(1-ObjValueV)+alpha1*ObjValueV; end;
+          //6: begin VStimType:=6; stimtable[i].VSize:=Exp(Ln(alpha1)*(1-ObjValueV)+Ln(alpha2)*ObjValueV); stimtable[i].VSize2:=Exp(Ln(alpha2)*(1-ObjValueV)+Ln(alpha1)*ObjValueV); end;
+          // none
+          7: VStimType:=7;
+          // Rectangle at 2 positions
+          8: begin VStimType:=8; stimtable[i].Vx:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; stimtable[i].Vy:=beta1*(1-ObjValueV)+beta2*ObjValueV; end; 
+          // Circles at 2 positions
+          9: begin VStimType:=5; stimtable[i].Vx:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; stimtable[i].Vy:=beta1*(1-ObjValueV)+beta2*ObjValueV; end; 
+        end
+      else
+        VStimType:=7;
       // Audio stim
       SStimType:=SProtocolType;
-      case SProtocolType of
-        // Two tones & frequency morphing (logarithmic scale!)
-        1: begin stimtable[i].SFreq:=Exp(Ln(f1)*(1-ObjValueS)+Ln(f2)*ObjValueS); end;
-        // Two tones & amplitude morphing
-        2: begin SFreq:=f1; SFreq2:=f2; stimtable[i].SAlpha:=ObjValueS; end;
-        // Ramp & frequency morphing (logarithmic scale!)
-        3: begin stimtable[i].SFreq:=Exp(Ln(f1)*(1-ObjValueS)+Ln(f2)*ObjValueS); stimtable[i].SFreq2:=Exp(Ln(f2)*(1-ObjValueS)+Ln(f1)*ObjValueS); stimtable[i].SAlpha:=ObjValueS; end;
-        // Ramp & amplitude morphing
-        4: begin stimtable[i].SFreq:=f1; stimtable[i].SFreq2:=f2; stimtable[i].SAlpha:=ObjValueS; end;
-        // Loaded sounds
-        5: stimtable[i].SoundIdx:=j;
-        // Two loaded files & amplitude morphing
-        6: stimtable[i].SAlpha:=ObjValueS;  
-        // Amplitude ramp (logarithmic scale!)
-        7: begin stimtable[i].SLevelDB:=f1*(1-ObjValueS)+f2*ObjValueS; stimtable[i].SLevelDB2:=f2*(1-ObjValueS)+f1*ObjValueS; end;
-        // 8 = none
-      end;
+      if Auditory then
+        case SProtocolType of
+          // Two tones & frequency morphing (logarithmic scale!)
+          1: begin stimtable[i].SFreq:=Exp(Ln(f1)*(1-ObjValueS)+Ln(f2)*ObjValueS); end;
+          // Two tones & amplitude morphing
+          2: begin SFreq:=f1; SFreq2:=f2; stimtable[i].SAlpha:=ObjValueS; end;
+          // Ramp & frequency morphing (logarithmic scale!)
+          3: begin stimtable[i].SFreq:=Exp(Ln(f1)*(1-ObjValueS)+Ln(f2)*ObjValueS); stimtable[i].SFreq2:=Exp(Ln(f2)*(1-ObjValueS)+Ln(f1)*ObjValueS); stimtable[i].SAlpha:=ObjValueS; end;
+          // Ramp & amplitude morphing
+          4: begin stimtable[i].SFreq:=f1; stimtable[i].SFreq2:=f2; stimtable[i].SAlpha:=ObjValueS; end;
+          // Loaded sounds
+          5: stimtable[i].SoundIdx:=j;
+          // Two loaded files & amplitude morphing
+          6: stimtable[i].SAlpha:=ObjValueS;  
+          // Amplitude ramp (logarithmic scale!)
+          7: begin stimtable[i].SLevelDB:=f1*(1-ObjValueS)+f2*ObjValueS; stimtable[i].SLevelDB2:=f2*(1-ObjValueS)+f1*ObjValueS; end;
+          // 8 = none
+        end
+      else
+        SStimType:=8;
       // Reward parameters
       if ProtocolType<>3 then stimtable[i].TaskType := 1+Ord(i>NStim/2);
     end;
