@@ -1012,8 +1012,9 @@ begin
   begin
     create;
     addLine('none');
-    addLine('4:3');
-    addLine('24:13');
+    addLine('4:3 (bottom-left)');
+    addLine('24:13 (bottom-let)');
+    addLine('4:3 (bottom-right)');
   end;  
   AllListMemo.addLine('MaskList');
   for i:=1 to MaskList.count do AllListMemo.addLine(Istr(i)+';'+MaskList.lines[i]);
@@ -1417,7 +1418,7 @@ begin
     // General parameters
     201: RunTheExp;
     203: OpenValve(rewardVolume);
-    204: for i:=1 to LickNumber do begin delay(300); display(Istr(i)); OpenValve(rewardVolume); end;
+    204: for i:=1 to LickNumber do begin delay(5000); display(Istr(i)); OpenValve(rewardVolume); end;
     205: OpenCloseValve;
     206: TestVisualStim(TRUE);
     // Visual parameters
@@ -1457,16 +1458,22 @@ end;
 procedure MakeMask;
 var
   Nb: integer;
-  W,H: real;
+  W,H,ww,hh: real;
 begin
   // Mask mode: center in the bottom-left part of the screen
   W:=stimScreen.width;
   H:=stimScreen.height;
-  yCenter:=H*(-0.5+0.3); 
   case MaskType of
-    2: xCenter:=W*(-0.5+0.3);       // 4:3
-    3: xCenter:=W*(-0.5+0.3*18/13); // 24:13
+    2: ww:=W*0.6;         // 4:3 bottom-left (2P setup)
+    3: ww:=W*0.6*18/13;   // 24:13 bottom-left (2P setup)
+    4: ww:=W*0.6;         // 4:3 bottom-right (behavior setup) 
   end;
+  case MaskType of 
+    2..3: xCenter:=-W/2+ww/2;
+    4: xCenter:=W/2-ww/2;
+  end;
+  hh:=H*0.6;
+  yCenter:=-H/2+hh/2; 
   // create the mask (2 rectangles)
   for i:=1 to 2 do
   with maskBar[i] do
@@ -1476,12 +1483,15 @@ begin
     begin
       x:=0;
       dx:=W;
-      y:=H/2+yCenter; // the calculation to get this is weird...
-      dy:=-2*yCenter;
+      dy:=H-hh;
+      y:=H/2-dy/2;
     end else
     begin
-      x:=W/2+xCenter;
-      dx:=-2*xCenter;
+      dx:=W-ww;
+      case MaskType of
+        2..3: x:=W/2-dx/2;
+        4: x:=-W/2+dx/2;
+      end;
       y:=0;
       dy:=H;
     end;
@@ -2531,7 +2541,7 @@ begin
   WaitVect.create(5,1,NREFRE);
   repeat
     delay(floor(del));
-    display('wait for no lick: '+Rstr((NREF-NC)*del,5,2));
+    display('wait for no lick: '+Rstr((NREF-NC)*del/1000,5,2));
     Ni.Ain(Address,1,LickV);
     NC0:=NC0+1; WaitVect[NC0]:=LickV;
     if ((DetectionType=2) AND (LickV>=thresh)) OR ((DetectionType=4) AND (LickV<=thresh)) then
@@ -2543,14 +2553,12 @@ begin
     if NC0>=NREFRE then
       begin
           if DetectionType=2 then Vbase:=WaitVect.Maxi0*1000 else Vbase:=WaitVect.Mini0*1000;
+          status.text[4]:='Vbase='+Rstr(Vbase,5,2);
           thresh:=(Vbase+LickThresholdUser)/1000;
           NC0:=0;
       end;
 
    // status.text[3]:='B'+Rstr(Vbase,5,2)+'T'+Rstr(thresh,5,2)+'NC'+Istr(NC)+'NC0'+Istr(NC0);
-   // status.text[3]:=Istr(NC);
-   // status.text[4]:=Rstr(LickV,5,2);
-   // status.text[6]:=Rstr(thresh,5,2);
   until ref OR Visualstim.StopStim;
   display('Trial');
 end;
