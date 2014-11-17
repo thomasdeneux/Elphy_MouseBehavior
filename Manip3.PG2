@@ -2518,8 +2518,8 @@ end;
 procedure WaitForNoLick;
 var
   LickV,LickThresholdUser,thresh,del,RefreshTime:real;
-  NREF,NREFRE,NC,NC0:integer;
-  ref:boolean;
+  t0:longint;
+  NREFRE,NC0,tremain:integer;
   Address:string;
 begin
 
@@ -2534,21 +2534,17 @@ begin
   thresh:=(Vbase+LickThresholdUser)/1000;
   status.text[4]:='Vbase=' + Rstr(Vbase,5,2);
   del:=10;
-  NC:=0;  NC0:=0;
-  ref:=FALSE;
-  NREF:=floor(RefractoryTime/del);
+  t0:=TimeGetTime;
+  NC0:=0;
   NREFRE:=floor(1000/del);
   WaitVect.create(5,1,NREFRE);
   repeat
     delay(floor(del));
-    display('wait for no lick: '+Rstr((NREF-NC)*del/1000,5,2));
+    tremain:=RefractoryTime-(TimeGetTime-t0);
+    display('wait for no lick: '+Rstr(tremain/1000,5,1));
     Ni.Ain(Address,1,LickV);
     NC0:=NC0+1; WaitVect[NC0]:=LickV;
-    if ((DetectionType=2) AND (LickV>=thresh)) OR ((DetectionType=4) AND (LickV<=thresh)) then
-      NC:=NC+1
-    else
-      NC:=0;
-    if NC>=NREF then ref:=TRUE;
+    if ((DetectionType=2) AND (LickV<thresh)) OR ((DetectionType=4) AND (LickV>thresh)) then t0:=TimeGetTime;
 
     if NC0>=NREFRE then
       begin
@@ -2558,8 +2554,7 @@ begin
           NC0:=0;
       end;
 
-   // status.text[3]:='B'+Rstr(Vbase,5,2)+'T'+Rstr(thresh,5,2)+'NC'+Istr(NC)+'NC0'+Istr(NC0);
-  until ref OR Visualstim.StopStim;
+  until (tremain<=0) OR Visualstim.StopStim;
   display('Trial');
 end;
 
