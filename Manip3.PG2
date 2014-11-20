@@ -55,6 +55,8 @@ var
   str,str1,str2: string;  // same for strings
   
   memRND: real; // memory for RandomN function
+  
+  lcr:TLCR; // DLP
 
 
 {$EDIT Tools}
@@ -158,7 +160,8 @@ var
   MaskType: word; 
   VAlpha, VOri, VOri2: real; // no menu
   Vx, Vy: real;
-  VSize, VSize2, VSpeed, VLum: real; 
+  VSize, VSize2, VSpeed, VLum: real;
+  VLED: integer; 
   ImageListFile: string;  
   ImageIdx: integer;
   // (audio stim)
@@ -167,6 +170,8 @@ var
   SLevelDB, SLevelDB2, SAlpha, SDuration, SDelay: real;
   SoundListFile: string;
   SoundIdx: integer;
+  // (acquisition)
+  EphysPeriod, EphysGain: real;
   
   // "StimGen" parameters
   // (general)
@@ -175,6 +180,8 @@ var
   VProtocolType: word;  
   alpha1, alpha2: real;
   beta1, beta2: real;
+  size1, size2: real;
+  led1, led2: integer;
   // (audio Stim)
   SProtocolType: word;
   f1, f2: real;
@@ -312,6 +319,7 @@ begin
   VSize2:=7;
   VSpeed:=400;
   VLum:=100;
+  VLED:=200;
   ImageListFile:='';
   ImageIdx:=0;
   // (audio stim)
@@ -334,12 +342,20 @@ begin
   alpha2:=0;
   beta1:=0;
   beta2:=0;
+  size1:=10;
+  size2:=10;
+  led1:=200;
+  led2:=200; 
   ImageListFile:='';
   // (audio stim)
   SProtocolType:=1;
   f1:=8000;
   f2:=16000;
   SoundListFile:='';
+  // (acquisition)
+  EphysPeriod:=1; //in ms, ie 1 kHz (if Ephys actually acquired, set to 0.05ms ie 20 kHz)
+  EphysGain:=1000; //one possible setting for extracelullar headstage
+  
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -394,6 +410,7 @@ begin
   parlist.VSize2 := db_real; 
   parlist.VSpeed := db_real; 
   parlist.VLum := db_real; 
+  parlist.VLED := db_integer;
   parlist.ImageListFile := db_string;
   parlist.ImageIdx := db_integer;
   // (audio stim)
@@ -407,6 +424,9 @@ begin
   parlist.SDelay := db_real;
   parlist.SoundListFile := db_string;
   parlist.SoundIdx := db_integer;
+  // (acquisition)
+  parlist.EphysPeriod := db_real;
+  parlist.EphysGain := db_real;
 end;
 
 // Init the stim table
@@ -482,6 +502,7 @@ begin
     Addline('VSize2'+';'+Rstr(VSize2)); 
     Addline('VSpeed'+';'+Rstr(VSpeed)); 
     Addline('VLum'+';'+Rstr(VLum)); 
+    Addline('VLED'+';'+Istr(VLED));
     AddLine('ImageListFile'+';'+ImageListFile);  
     AddLine('ImageIdx'+';'+Istr(ImageIdx));  
     // (audio stim)
@@ -495,6 +516,9 @@ begin
     Addline('SDelay'+';'+Rstr(SDelay));
     AddLine('SoundListFile'+';'+SoundListFile);
     AddLine('SoundIdx'+';'+Istr(SoundIdx));  
+    // (acquisition)
+    Addline('EphysPeriod'+';'+Rstr(EphysPeriod));
+    Addline('EphysGain'+';'+Rstr(EphysGain));
     
     // Multiple values in StimTable
     for j:=1 to StimTable.ColCount do
@@ -588,6 +612,7 @@ begin
   if spar.fieldExists('VSize2') then VSize2:=spar.VSize2; 
   if spar.fieldExists('VSpeed') then VSpeed:=spar.VSpeed; 
   if spar.fieldExists('VLum') then VLum:=spar.VLum; 
+  if spar.fieldExists('VLED') then VLED:=spar.VLED;
   if spar.fieldExists('ImageListFile') then ImageListFile:=spar.ImageListFile; 
   if spar.fieldExists('ImageIdx') then ImageIdx:=spar.ImageIdx;
   // (audio stim)
@@ -601,6 +626,9 @@ begin
   if spar.fieldExists('SDelay') then SDelay:=spar.SDelay;
   if spar.fieldExists('SoundListFile') then SoundListFile:=spar.SoundListFile; 
   if spar.fieldExists('SoundIdx') then SoundIdx:=spar.SoundIdx;
+  // (acquisition)
+  if spar.fieldExists('EphysPeriod') then EphysPeriod:=spar.EphysPeriod;
+  if spar.fieldExists('EphysGain') then EphysGain:=spar.EphysGain;
 end;
 
 // Load parameters from TMemo object
@@ -710,6 +738,7 @@ begin
   mpar2.VSize:=VSize;
   mpar2.VSpeed:=VSpeed;
   mpar2.VLum:=VLum;
+  mpar2.VLED:=VLED;
   // (audio stim)
   mpar2.SDuration:=SDuration;
   mpar2.SDelay:=SDelay;
@@ -724,12 +753,19 @@ begin
   mpar2.alpha2:=alpha2;
   mpar2.beta1:=beta1; 
   mpar2.beta2:=beta2;
+  mpar2.size1:=size1; 
+  mpar2.size2:=size2;
+  mpar2.led1:=led1; 
+  mpar2.led2:=led2;
   mpar2.ImageListFile:=ImageListFile;
   // (audio stim)
   mpar2.SProtocolType:=SProtocolType;
   mpar2.f1:=f1; 
   mpar2.f2:=f2;
   mpar2.SoundListFile:=SoundListFile;
+  // (acquisition)
+  mpar2.EphysPeriod:=EphysPeriod;
+  mpar2.EphysGain:=EphysGain;
 end;
 
 procedure TDBrecord2MenuPar;
@@ -774,6 +810,7 @@ begin
   VSize:=mpar2.VSize;
   if mpar2.fieldExists('VSpeed') then VSpeed:=mpar2.VSpeed else VSpeed:=0;
   VLum:=mpar2.VLum;
+  if mpar2.fieldExists('VLED') then VLED:=mpar2.VLED else VLED:=200;
   // (audio stim)
   if mpar2.fieldExists('SDuration') then SDuration:=mpar2.SDuration else SDuration:=100;
   if mpar2.fieldExists('SDelay') then SDelay:=mpar2.SDelay else SDelay:=0;
@@ -789,12 +826,19 @@ begin
   alpha2:=mpar2.alpha2;
   if mpar2.fieldExists('beta1') then beta1:=mpar2.beta1 else beta1:=0;
   if mpar2.fieldExists('beta2') then beta2:=mpar2.beta2 else beta2:=0;
+  if mpar2.fieldExists('size1') then size1:=mpar2.size1 else size1:=10;
+  if mpar2.fieldExists('size2') then size2:=mpar2.size2 else size2:=10;
+  if mpar2.fieldExists('led1') then led1:=mpar2.led1 else led1:=200;
+  if mpar2.fieldExists('led2') then led2:=mpar2.led2 else led2:=200;
   if mpar2.fieldExists('ImageListFile') then ImageListFile:=mpar2.ImageListFile else ImageListFile:='';
   // (audio stim)
   SProtocolType:=mpar2.SProtocolType;
   f1:=mpar2.f1; 
   f2:=mpar2.f2;
   if mpar2.fieldExists('SoundListFile') then SoundListFile:=mpar2.SoundListFile else SoundListFile:='';
+  // (acquisition)
+  if mpar2.fieldExists('EphysPeriod') then EphysPeriod:=mpar2.EphysPeriod else EphysPeriod:=1;
+  if mpar2.fieldExists('EphysGain') then EphysGain:=mpar2.EphysGain else EphysGain:=1000;
 end;
 
 
@@ -1166,7 +1210,7 @@ begin
         // Rectangle at 2 positions
         8: begin VStimType:=8; stimtable[i].Vx:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; stimtable[i].Vy:=beta1*(1-ObjValueV)+beta2*ObjValueV; end; 
         // Circles at 2 positions
-        9: begin VStimType:=5; stimtable[i].Vx:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; stimtable[i].Vy:=beta1*(1-ObjValueV)+beta2*ObjValueV; end; 
+        9: begin VStimType:=5; stimtable[i].Vx:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; stimtable[i].Vy:=beta1*(1-ObjValueV)+beta2*ObjValueV; stimtable[i].VSize:=size1*(1-ObjValueV)+size2*ObjValueV;stimtable[i].VLED:=floor(led1*(1-ObjValueV)+led2*ObjValueV);end; 
       end;
       // Audio stim
       SStimType:=SProtocolType;
@@ -1210,7 +1254,7 @@ begin
     create;
     dividePanel('1',3,FALSE);
     if DoMenu then
-      splitPanel('1.2','General|Timing|Behavior|Visual Stim|Audio Stim');
+      splitPanel('1.2','General|Timing|Behavior|Visual Stim|Audio Stim|Acquisition');
 
     // Files menu
     selectPanel('1.1');
@@ -1272,10 +1316,14 @@ begin
       getBoolean('Keep grating on',KeepGratingOn);
       getBoolean('Square wave grating',SquareWaveGrating);
       getstringList1('Bottom-left mask',MaskList,MaskType);
-      getReal('S+ parameter',alpha1,5,2);
-      getReal('S- parameter',alpha2,5,2);
-      getReal('S+ parameter 2',beta1,5,2);
-      getReal('S- parameter 2',beta2,5,2);
+      getReal('S+ parameter',alpha1,5,3);
+      getReal('S+ parameter 2',beta1,5,3);
+      getReal('S+ size',size1,5,3);
+      getInteger('S+ LED',led1,3);
+      getReal('S- parameter',alpha2,5,3);
+      getReal('S- parameter 2',beta2,5,3);
+      getReal('S- size',size2,5,3);
+      getInteger('S- LED',led2,3);
       getReal('Object Size',VSize,5,1);
       getReal('Object Luminance',VLum,5,1);
       getReal('Speed',VSpeed,5,1);
@@ -1283,6 +1331,7 @@ begin
       getCommandA('Choose images', Go,301);
       getCommandA('Test visual stim', Go,302);
       getCommandA('Calibration image for DLP', Go,303);
+      getCommandA('LEDs off', Go,304);
     
       // Auditory parameters
       selectPanel('1.2.5');
@@ -1296,6 +1345,12 @@ begin
       getString('Sound list file',SoundListFile,30);
       getCommandA('Load sounds', Go,401);
       getCommandA('Test sounds', Go,402);
+      
+      // Acquisition parameters
+      selectPanel('1.2.6');
+      getReal('Ephys (v3) period per channel (ms)',EphysPeriod,5,3);
+      getReal('Ephys total amplification',EphysGain,5,3);
+      
     end else
     begin
       // Very simplified menu with no protocol parameter
@@ -1366,6 +1421,7 @@ procedure TestSounds;forward;
 procedure OpenValve(volume:real);forward;
 procedure OpenCloseValve;forward;
 procedure CalibDLPImage;forward;
+procedure LEDsOff;forward;
 
 // Update parameters display, including the name of the parameter file
 procedure ParamWinUpdate;
@@ -1397,13 +1453,14 @@ begin
     // General parameters
     201: RunTheExp;
     203: OpenValve(rewardVolume);
-    204: for i:=1 to LickNumber do begin delay(300); display(Istr(i)); OpenValve(rewardVolume); end;
+    204: for i:=1 to LickNumber do begin delay(2000); display(Istr(i)); OpenValve(rewardVolume); end;
     205: OpenCloseValve;
     206: TestVisualStim(TRUE);
     // Visual parameters
     301: begin ChooseImages; ParChg:=true; end;
     302: TestVisualStim(FALSE);
     303: CalibDLPImage;
+    304: LEDsOff;
     // Sound parameters
     401: begin ChooseSounds; ParChg:=true; end;
     402: TestSounds;
@@ -1839,6 +1896,12 @@ begin
     6: MakeLoomingCircle;    // 7: corresponds to 'none'
     8: MakeOneofTwoRectangles;    //actually squares
   end;
+  
+// set current level of DLP LEDs:
+ 
+//lcr.SetLedCurrents(255,255,0);          // this is max Blue LED, no current to Green and Red
+lcr.SetLedCurrents(255,255,255-VLED);  // for blue LED 
+  
 end;
 
 procedure initVisual;
@@ -1847,6 +1910,12 @@ var
 begin
   // Background luminance
   StimScreen.BackGroundLum:=BackgroundLuminance;
+  
+  // no light from DLP at initialization:
+  lcr.create;
+  lcr.SetLedCurrents(255,255,255); 
+  
+  
   // Mask (or set center coordinates to zero)
   // If no mask, just set the center to center of screen
   if MaskType>1 then
@@ -1882,7 +1951,7 @@ var
 begin
   tmp1:=StimDelay;
   tmp2:=NStimPerEp;
-  StimDelay:=300;
+  StimDelay:=1000;
   NStimPerEp:=1;
   
   if DoMenu then SaveDefaultMenuParameters; 
@@ -1898,7 +1967,7 @@ begin
     ICond:=i;
     Record2Par(StimTable[i]); // update parameters for condition i
     setVisualStim;            // set stim
-    if doAudio then setAudioStim(FALSE); 
+    if doAudio then setAudioStim(FALSE);  
     VisualStim.animate;       // play stim
     if Visualstim.StopStim then break;
   end;
@@ -1911,7 +1980,9 @@ end;
 // zp 07052014 - draws 3 crosses on the screen
 procedure CalibDLPImage;
 var
-  x1,y1,s1,x2,y2,s2,x3,y3,s3,k,tmp:integer; 
+  x1,y1,s1,x2,y2,s2,x3,y3,s3,k,tmp,tmp2:integer; 
+const
+  eps=0.05;
 begin
 
   if DoMenu then SaveDefaultMenuParameters; 
@@ -1919,12 +1990,17 @@ begin
   initVisual;
   VisualStim.OnStartAnimate1:=NIL;
   VisualStim.OnStartAnimate2:=NIL;
+  
 
   //////////  
 s1:=4; s2:=8; s3:=12; //size of crosses
 x1:=0; y1:=0; // position of first (smallest) cross
 x2:=-10; y2:=10; //position of second cross
 x3:=10; y3:=10; //position of third (biggest) cross
+  
+  
+  emptyVisualStim;
+  
   
   // create the contour (TXYplot object) 
   with plot do
@@ -1934,46 +2010,66 @@ x3:=10; y3:=10; //position of third (biggest) cross
        AddPolyline;
       with polylines[1] do 
       begin
-        for k:=0 to s1 do
-          addPoint(x1,y1-s1/2+k); 
+        addPoint(x1-eps,y1-s1/2); 
+        addPoint(x1-eps,y1+s1/2);
+        addPoint(x1+eps,y1+s1/2);
+        addPoint(x1+eps,y1-s1/2);
+        addPoint(x1-eps,y1-s1/2);    
       end;  
-    
+      
       AddPolyline; 
       with polylines[2] do  
       begin
-        for k:=0 to s1 do
-          addPoint(x1-s1/2+k,y1);
+        addPoint(x1-s1/2,y1-eps); 
+        addPoint(x1+s1/2,y1-eps);
+        addPoint(x1+s1/2,y1+eps);
+        addPoint(x1-s1/2,y1+eps);
+        addPoint(x1+s1/2,y1-eps);
       end;  
       
        AddPolyline;  
       with polylines[3] do 
       begin
-        for k:=0 to s2 do
-          addPoint(x2,y2-s2/2+k);
+        addPoint(x2-eps,y2-s2/2); 
+        addPoint(x2-eps,y2+s2/2);
+        addPoint(x2+eps,y2+s2/2);
+        addPoint(x2+eps,y2-s2/2);
+        addPoint(x2-eps,y2-s2/2);  
       end; 
       
       AddPolyline;  
       with polylines[4] do 
       begin
-        for k:=0 to s2 do
-          addPoint(x2-s2/2+k,y2);
+        addPoint(x2-s2/2,y2-eps); 
+        addPoint(x2+s2/2,y2-eps);
+        addPoint(x2+s2/2,y2+eps);
+        addPoint(x2-s2/2,y2+eps);
+        addPoint(x2+s2/2,y2-eps);
       end;  
       
              AddPolyline;  
       with polylines[5] do 
       begin
-        for k:=0 to s3 do
-          addPoint(x3,y3-s3/2+k);
+        addPoint(x3-eps,y3-s3/2); 
+        addPoint(x3-eps,y3+s3/2);
+        addPoint(x3+eps,y3+s3/2);
+        addPoint(x3+eps,y3-s3/2);
+        addPoint(x3-eps,y3-s3/2);
       end; 
       
       AddPolyline;  
       with polylines[6] do 
       begin
-        for k:=0 to s3 do
-          addPoint(x3-s3/2+k,y3);
+        addPoint(x3-s3/2,y3-eps); 
+        addPoint(x3+s3/2,y3-eps);
+        addPoint(x3+s3/2,y3+eps);
+        addPoint(x3-s3/2,y3+eps);
+        addPoint(x3+s3/2,y3-eps);
       end;
-    
+      
   end;    
+  
+  status.text[1]:='plot done';
   
   // create the bar (Tbar object) and assign the contour to it
   with bar do
@@ -1988,7 +2084,9 @@ x3:=10; y3:=10; //position of third (biggest) cross
     
   // create stim (TOnOff object)and assign the bar to it
   tmp:=StimDelay;
+  tmp2:=NStimPerEp;
   StimDelay:=300;
+  NStimPerEp:=1;
   
   with stim do
   begin
@@ -2000,15 +2098,26 @@ x3:=10; y3:=10; //position of third (biggest) cross
     setVisualObject(bar);
   end;  
   
+      status.text[2]:='stim created';
+    lcr.SetLedCurrents(255,255,200);
      //////////////
-  StimDelay:=tmp;
+       status.text[3]:='LED current set';
 
   VisualStim.animate;
   if Visualstim.StopStim then break;
+  VisualStim.StopStim:=FALSE;
+    status.text[4]:='VisualStim animated';
+   StimDelay:=tmp;
+  NStimPerEp:=tmp2;
 
 
 end;
 
+procedure LEDsOff;
+
+begin
+ lcr.SetLedCurrents(255,255,255); 
+end;
 
 {$EDIT AudioStim}
 ////////////////////////////////////////////////////////////////////////////////
@@ -2524,7 +2633,7 @@ end;
 // Procedure for Episodes recording
 procedure Initialize_AcqAndTriggs;
 var
-  SoundStart, EpisodeDuration: integer;
+  SoundStart, EpisodeDuration, soundStartMS, pulseDur: integer;
 begin
 
   // Set general parameters of acquisition
@@ -2535,9 +2644,9 @@ begin
     EpisodeDuration := StimDelay+VisualStimDuration+RewardDelay; // seconds
   with VisualStim do
   begin
-    // Period MUST BE 1ms because this is assumed for several actions
-    // (for example, for setting the output that will trigger the sound)
-    PeriodPerChannel:=1; // unit: ms
+    // EphysPeriod is the period chosen for acquiring electrophysiology data (v3). Other channels are adjusted with DownSamplingFactor such
+    // that their period is 1ms.
+    PeriodPerChannel:=EphysPeriod; // unit: ms
     // Erase all displays
     emptyVisualStim;
     // Handle triggers
@@ -2571,7 +2680,7 @@ begin
           PhysNum:=1; // nothing to record -> record audio stim, just for fun
         UnitY:='mV';
         setScale(0,32767,0,10000);
-        DownSamplingFactor:= 1;
+        DownSamplingFactor:= floor(1/EphysPeriod);       // so that sampling period on that channel is 1 ms.
       end;
       
       with Channels[2] do    //can be used for recording output of photodetector, to test temporal structure of visual stimuli
@@ -2579,20 +2688,18 @@ begin
        PhysNum:=2; //put to 0 when not in use
        UnitY:='mV';
        setScale(0,32767,0,10000);
-       DownSamplingFactor:= 1;
+       DownSamplingFactor:= 1; //floor(1/EphysPeriod);   // so that sampling period on that channel is 1 ms.
       end ;
       
       with Channels[3] do    //for ephys recording
       begin
        PhysNum:=3;
        UnitY:='mV';
-       setScale(0,32767,0,10); // 10000 mV (the max) at the input to the NI card corresponds to 10 mV in the brain 
-       //(before x1000 amplification by the extracellular headstage and the BVC-700A)
-       // CHANGE this if intracellular headstage used, or any amplification setting is changed
+       setScale(0,32767,0,10000/EphysGain); // 10000 mV (the max) at the input to the NI card corresponds to 10 mV in the brain 
+       //(before xEphysGain amplification by the extracellular headstage and the BVC-700A)
        DownSamplingFactor:= 1;
       end ;
-      
-      
+    
       Fstimulate:=true;
     end
     else
@@ -2626,8 +2733,12 @@ begin
     vector[1].fill(0);
     for i:=1 to NStimPerEp do
     begin
-      soundStart := StimDelay+(i-1)*TrialInterval+Round(SDelay);
-      vector[1].fill1(1,soundStart,soundStart+10);  // Ce pulse est envoyé sur PFI1, il déclenche le signal analogique
+      soundStartMS := StimDelay+(i-1)*TrialInterval+Round(SDelay);
+    //  soundStart := floor(soundStartMS / VisualStim.PeriodPerChannel);
+    //  pulseDur := floor(10 / VisualStim.PeriodPerChannel);
+        soundStart := soundStartMS ;
+      pulseDur :=10 ;
+      vector[1].fill1(1,soundStart,soundStart+pulseDur);  // Ce pulse est envoyé sur PFI1, il déclenche le signal analogique
     end;
 
   end;
@@ -2646,14 +2757,14 @@ begin
     
   v3.Xmin:=0;
   v3.Xmax:=EpisodeDuration;
-  v3.Ymin:=-10; //CHANGE if ephys amplification changed
-  v3.Ymax:=10; //CHANGE if ephys amplification changed
+  v3.Ymin:=-100/EphysGain;
+  v3.Ymax:=100/EphysGain; 
   
   
   v2.Xmin:=0;
   v2.Xmax:=EpisodeDuration;
-  v2.Ymin:=-10; //CHANGE if ephys amplification changed
-  v2.Ymax:=10; //CHANGE if ephys amplification changed
+  v2.Ymin:=-1000;
+  v2.Ymax:=1000;
 
 end;
 
