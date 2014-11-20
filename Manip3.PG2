@@ -1001,6 +1001,8 @@ begin
     addLine('Touch: Downward crossing');
     addLine('Lick, head fixed: Electric contact');
     addLine('Lick, freely moving: IR fork');
+    addLine('Lick, head fixed: Active electric contact');
+
   end;
   AllListMemo.addLine('DetectionList');
   for i:=1 to DetectionList.count do AllListMemo.addLine(Istr(i)+';'+DetectionList.lines[i]);
@@ -2445,6 +2447,31 @@ begin
       vfilt.Threshold1(LickThresholdTop);
       w:=100-floor(100*vfilt.Mean(StimDelay+VisualStimDuration,StimDelay+VisualStimDuration+RewardDelay));
      end;
+     
+         // Head-fixed licking with active electric contact
+    4:
+    begin
+    v1.CpX:=1;
+    v1.CpY:=1;
+    vfilt.CpX:=v1.CpX;
+    vfilt.CpY:=v1.CpY;
+    Filter(1,FALSE,2,10,v1,vfilt,v1.Xstart,v1.Xend);
+    vfilt.refresh;
+    with det do
+      begin
+       create;
+       installSource(vfilt);
+       Xstart:=StimDelay+LickCountingDelay;
+       Xend:=StimDelay+VisualStimDuration+RewardDelay;
+       mode:= sm_max;
+       height:= LickThresholdTop;
+       execute;
+      end;
+      w:= det.count;
+      Vbase:=vfilt.Mini0;
+     end;
+
+     
   end;
 
   // Give the reward if correct answer to S+ (or free S+ trial)
@@ -2493,7 +2520,9 @@ begin
     create;
     // detector events are initiated by threshold crossing:
     // arguments 3 and 4 tell whether up-crossings and down-crossings generate an event
-    initCrossings(v1,Vdetect, true,false, LickThresholdTop+Vbase,LickThresholdBottom+Vbase, 100, 0,false);
+    status.text[4]:='Vbase='+Rstr(Vbase,5,2);
+    initCrossings(v1,Vdetect, true,false, LickThresholdTop+Vbase,LickThresholdBottom+Vbase, 100, Vbase,false);
+
     AddEvent(ImmediateRewardFunction,0);
   end;
 end;
@@ -2568,16 +2597,22 @@ end;
 
 procedure WaitForNoLick;
 var
-  LickV,thresh,del,RefreshTime:real;
+  LickV,LickThresholdUser,thresh,del,RefreshTime:real;
   NREF,NREFRE,NC,NC0:integer;
   ref:boolean;
   Address:string;
 begin
 
   display('wait for no lick');
-  Address:=Dev+'/AI0';
-  thresh:=(LickThresholdBottom+Vbase)/1000;
-  status.text[6]:='Vbase=' + Rstr(Vbase,5,2);
+  Address:=Dev+'/AI0'; 
+    if DetectionType=2 then 
+    LickThresholdUser:=LickThresholdBottom 
+  else if DetectionType=4 then
+    LickThresholdUser:=LickThresholdTop
+  else
+    ErrorDlg('Wrong detection type encountered in WaitForNoLick');
+  thresh:=(Vbase+LickThresholdUser)/1000;
+  status.text[4]:='Vbase=' + Rstr(Vbase,5,2); 
   del:=10;
   NC:=0;  NC0:=0;
   ref:=FALSE;
@@ -2585,24 +2620,33 @@ begin
   NREFRE:=floor(1000/del);
   WaitVect.create(5,1,NREFRE);
   repeat
+      delay(floor(del));
+    display('wait for no lick: '+Rstr((NREF-NC)*del,5,2));
+
     Ni.Ain(Address,1,LickV);
     NC0:=NC0+1; WaitVect[NC0]:=LickV;
-    if LickV>=thresh then NC:=NC+1;
+    
+    if ((DetectionType=2) AND (LickV>=thresh)) OR ((DetectionType=4) AND (LickV<=thresh)) then
+      NC:=NC+1
+    else
+      NC:=0;
+
     if NC>=NREF then ref:=TRUE;
-    if LickV<thresh then NC:=0;
 
     if NC0>=NREFRE then
       begin
-          Vbase:=WaitVect.Maxi0*1000;
-          thresh:=(LickThresholdBottom+Vbase)/1000;
+          if DetectionType=2 then Vbase:=WaitVect.Maxi0*1000 else Vbase:=WaitVect.Mini0*1000;
+          thresh:=(Vbase+LickThresholdUser)/1000;
           NC0:=0;
       end;
 
-    delay(floor(del));
+  
+       // status.text[3]:='B'+Rstr(Vbase,5,2)+'T'+Rstr(thresh,5,2)+'NC'+Istr(NC)+'NC0'+Istr(NC0);
+
    // status.text[3]:=Istr(NC);
    // status.text[4]:=Rstr(LickV,5,2);
    // status.text[6]:=Rstr(thresh,5,2);
-  until ((LickV>thresh) AND (ref)) OR Visualstim.StopStim;
+    until ref OR Visualstim.StopStim;
   display('Trial');
 end;
 
@@ -2874,7 +2918,7 @@ begin
   SelectTrialType; // This sets ICond, increments cnt, updates TRecord, and updates stim parameters
   
   // Init the detector if necessary?
-  if Behavior and (RewardCriterion=2) then
+    if Behavior and ((RewardCriterion=2) OR (RewardCriterion=4)) then
   begin
     InitDetectorReward; // detector for immediate reward
     VisualStim.InstallDetector(detector);
@@ -2978,8 +3022,9 @@ if VisualStim.OpenDataFile then
        Vbase:=tmp*1000;
        delay(50);
        Ni.Ain(Address,1,tmp);
-       if(tmp*1000>Vbase) then Vbase:=tmp*1000;
-       status.text[6]:='Vbase=' + Rstr(Vbase,5,2);
+      if (tmp*1000>Vbase) AND (DetectionType=2) then Vbase:=tmp*1000;
+       status.text[4]:='Vbase=' + Rstr(Vbase,5,2);
+
     end;
 
     // Episodes loop
