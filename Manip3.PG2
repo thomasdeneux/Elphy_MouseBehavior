@@ -192,7 +192,7 @@ var
   AllListMemo: Tmemo; // summarizes the correspondence between list items and numbers
     
   // Local parameters
-  Dev, PFI: string;
+  Dev: string;
   rewardConversion: real;
   localpar : TDBrecord; // local parameters 
   
@@ -237,16 +237,10 @@ begin
     localpar.rewardConversion:=0; // will be set later by user
     localpar.SaveAsObject(LocalParameterFile);
   end;
-  // read or create more recent field(s)
+  // no need any more for a 'PFI' field
   if localpar.fieldExists('PFI') then 
-    PFI := localpar.PFI
-  else
   begin
-    InitDialogBox;
-    PFI := 'PFI1';
-    DBgetString('Sound trigger line',PFI,4);
-    ShowDialogBox;
-    localpar.PFI := PFI;
+    localpar.deleteField('PFI');
     localpar.SaveAsObject(LocalParameterFile);
   end;
 end;
@@ -2240,7 +2234,7 @@ begin
     if immediateStart then
       start('')
     else
-      start(PFI); // set trigger
+      start('PFI1'); // set trigger
   end;
 end;
 
