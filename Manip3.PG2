@@ -1418,7 +1418,7 @@ begin
     // General parameters
     201: RunTheExp;
     203: OpenValve(rewardVolume);
-    204: for i:=1 to LickNumber do begin delay(5000); display(Istr(i)); OpenValve(rewardVolume); end;
+    204: for i:=1 to LickNumber do begin delay(300); display(Istr(i)); OpenValve(rewardVolume); end;
     205: OpenCloseValve;
     206: TestVisualStim(TRUE);
     // Visual parameters
@@ -2390,7 +2390,7 @@ begin
        execute;
       end;
       w:= det.count;
-      Vbase:=vfilt.Mini0;
+      Vbase:=0;
      end;
 
   end;
@@ -2548,7 +2548,7 @@ begin
 
     if NC0>=NREFRE then
       begin
-          if DetectionType=2 then Vbase:=WaitVect.Maxi0*1000 else Vbase:=WaitVect.Mini0*1000;
+          if DetectionType=2 then Vbase:=WaitVect.Maxi0*1000 else Vbase:=0;
           status.text[4]:='Vbase='+Rstr(Vbase,5,2);
           thresh:=(Vbase+LickThresholdUser)/1000;
           NC0:=0;
@@ -2891,16 +2891,19 @@ if VisualStim.OpenDataFile then
 
     // Estimate baseline voltage
     if Behavior then
+      if DetectionType=4 then
+        VBase:=0
+      else
       begin
-       Address:=Dev+'/AI0';
-       Ni.Ain(Address,1,tmp);
-       Vbase:=tmp*1000;
-       delay(50);
-       Ni.Ain(Address,1,tmp);
-       if (tmp*1000>Vbase) AND (DetectionType=2) then Vbase:=tmp*1000;
-       status.text[4]:='Vbase=' + Rstr(Vbase,5,2);
-    end;
-
+        Address:=Dev+'/AI0';
+        Ni.Ain(Address,1,tmp);
+        Vbase:=tmp*1000;
+        delay(50);
+        Ni.Ain(Address,1,tmp);
+        if (tmp*1000>Vbase) then Vbase:=tmp*1000;
+        status.text[4]:='Vbase=' + Rstr(Vbase,5,2);
+      end;
+    
     // Episodes loop
     repeat
       DoEpisode;                        // Launch episode
