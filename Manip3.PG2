@@ -1242,7 +1242,7 @@ begin
     end;
     
     getRealA('Reward conversion (ms/ul)',rewardConversion,4,1,105);
-    getReal('Total Reward (ul)',rewardTotal,4,1);
+    getRealA('Total Reward (ul)',rewardTotal,4,1,106);
     setText(''); // add a separation line
   
     if DoMenu then
@@ -1423,7 +1423,7 @@ begin
     401: begin ChooseSounds; ParChg:=true; end;
     402: TestSounds;
     // Otherwise, some parameter has probably been changed
-    else ParChg:=true;
+    else if N<>106 then ParChg:=true;
   end;
   
   // Mark that some parameter has changed
@@ -2621,6 +2621,7 @@ begin
             1: PhysNum:=1;
             2: PhysNum:=0;
             3: PhysNum:=1;
+            4: PhysNum:=0;
           end
         else
           PhysNum:=1; // nothing to record -> record audio stim, just for fun
@@ -2675,6 +2676,7 @@ begin
       1: begin v1.Ymin:=0; v1.Ymax:=5500; end;
       2: begin v1.Ymin:=-10500; v1.Ymax:=10500; end;
       3: begin v1.Ymin:=0; v1.Ymax:=5500; end;
+      4: begin v1.Ymin:=-10500; v1.Ymax:=10500; end;
     end
   else
     begin v1.Ymin:=-500; v1.Ymax:=500; end;
