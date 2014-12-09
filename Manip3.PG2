@@ -1137,9 +1137,7 @@ begin
     4: NStim:=2;
     5: NStim:=0; 
   end;
-  ContinuousRec:=(ProtocolType=5);
   if OkParamWin then ParamWin.update;
-  if ContinuousRec then break; // there are no stim parameters in continuous mode
 
   // Stim table
   InitStimTable;
