@@ -2388,7 +2388,7 @@ begin
   end;
 
   // Give the reward if correct answer to S+ (or free S+ trial)
-  if (TaskType=1) AND activeReward AND ((w>= LickNumber) OR (cnt<=NFreeTrials)) then 
+  if ((TaskType=1) OR (TaskType=3)) AND activeReward AND ((w>= LickNumber) OR (cnt<=NFreeTrials)) then 
     OpenValve(Floor(rewardVolume+max(0,w-LickNumber)*rewardSlope));
      
   // Record the number of licks
@@ -2399,6 +2399,7 @@ begin
   case TaskType of
     1: CRecord[cnt] := Ord(w>=LickNumber);
     2: CRecord[cnt] := Ord(w< LickNumber);
+    3..5: CRecord[cnt] := 0.5;
   end;
 end;
 
@@ -2417,7 +2418,7 @@ begin
     OpenValve(rewardVolume)
   else
     // reward if S+ and correct response
-    if (TaskType=1) AND (Vdetect[Vdetect.Iend]>StimDelay+LickCountingDelay) AND (activeReward) then
+    if ((TaskType=1) OR (TaskType=3)) AND (Vdetect[Vdetect.Iend]>StimDelay+LickCountingDelay) AND (activeReward) then
     begin
       OpenValve(rewardVolume);
       activeReward:=FALSE;
@@ -2835,7 +2836,7 @@ begin
     display('wait for some delay');
     delay(dd);
   end;
-  if Behavior AND (TaskType=2) AND (CRecord[cnt]=0) AND (PunitionDelay>0) then
+  if Behavior AND ((TaskType=2) OR (TaskType=4)) AND (CRecord[cnt]=0) AND (PunitionDelay>0) then
   begin
     display('punition delay');    // punishment for false positive
     delay(PunitionDelay);
