@@ -2568,7 +2568,7 @@ var
   Address:string;
 begin
   display('wait for microscope');
-  Address:=Dev+'/PORT1/LINE2';
+  Address:=Dev+'/PORT1/LINE0';
   // first get a 0 bit (make sure previous acquisition has finished)
   repeat
     ok:=Ni.Din(Address,dig);
