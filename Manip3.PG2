@@ -46,7 +46,7 @@ var
   
   ValveOpen: boolean;
   rewardTotal: real;
-  activeReward: boolean;
+  activeReward, DoPunition: boolean;
   
   status: TstatusBar;     // use display('some text') or status.text[k]:='some text' to display some text in the status bar
 
@@ -1341,7 +1341,7 @@ begin
 end;
 
 // Build the GUI
-procedure  DesignInterface;
+procedure  DesignPage;
 begin
    deleteallpages('Behavior');
    Go:=0;
@@ -1356,6 +1356,13 @@ begin
    DefineWindow(0,floor(pageheight/2),pagewidth-400,floor(pageheight*3/4));
    DefineWindow(0,floor(pageheight*3/4),pagewidth-400,pageheight);
    DefineWindow(pagewidth-400,0,pagewidth,pageheight);
+  end;
+end;
+
+procedure FillPage;
+begin
+  with MGpage['Behavior'] do
+  begin
    addobject(1,v[1]);   vfilt.create;   addobject(1,vfilt);
    addobject(2,LickRecord);
    addobject(3,CRecord);
@@ -2391,15 +2398,19 @@ begin
   if ((TaskType=1) OR (TaskType=3)) AND activeReward AND ((w>= LickNumber) OR (cnt<=NFreeTrials)) then 
     OpenValve(Floor(rewardVolume+max(0,w-LickNumber)*rewardSlope));
      
+  // Decide whether a punition should be given (in the form of an additional delay, inside the DoEpisode function)
+  DoPunition := ((TaskType=2) OR (TaskType=4)) AND (w>=LickNumber);
+  
   // Record the number of licks
   status.text[5]:=Istr(w)+' lick(s)';
   LickRecord[cnt]:=w;
   
   // Record whether the trial was correct
+  status.text[3]:='';
   case TaskType of
     1: CRecord[cnt] := Ord(w>=LickNumber);
     2: CRecord[cnt] := Ord(w< LickNumber);
-    3..5: CRecord[cnt] := 0.5;
+    3..5: begin status.text[3]:='catched trial'; CRecord[cnt] := 0.5; end;
   end;
 end;
 
@@ -2707,6 +2718,9 @@ begin
   end;
   hideSystemStatusBar;
 
+  // Init Page
+  DesignPage;
+  
   // Init experiment parameters and other variables
   InitSettings;
 
@@ -2719,14 +2733,14 @@ begin
   end;
   with CRecord do
   begin
-   create(t_smallint,0,1);
+   create(t_single,0,1);
    Ymin:=-1;
    Ymax:=2;
   end;
   TRecord.create(t_smallint,1,1);
 
-  // Parameters interface
-  DesignInterface;
+  // Put vectors into windows and build the menus (though they were already built in 'InitSettings')
+  FillPage;
 
   // Set a gray screen
   StimScreen.BackGroundLum:=BackgroundLuminance;
@@ -2822,7 +2836,7 @@ begin
   // Reward
   if Behavior then
   begin
-    RewardFunction;         // Check the number of licks and deliver the reward
+    RewardFunction;         // Check the number of licks, deliver the reward and set DoPunition
     activeReward:=TRUE;
     LickRecord.refresh;
     CRecord.refresh;
@@ -2836,7 +2850,7 @@ begin
     display('wait for some delay');
     delay(dd);
   end;
-  if Behavior AND ((TaskType=2) OR (TaskType=4)) AND (CRecord[cnt]=0) AND (PunitionDelay>0) then
+  if Behavior AND DoPunition AND (PunitionDelay>0) then
   begin
     display('punition delay');    // punishment for false positive
     delay(PunitionDelay);
@@ -2872,10 +2886,10 @@ if VisualStim.OpenDataFile then
     Initialize_AcqAndTriggs;
 
     // Set storage vectors (and precompute all condition numbers)
-    TRecord.modify(2,1,MaxTrialNumber);     TRecord.Xmax:=MaxTrialNumber;
+    TRecord.modify(t_smallint,1,MaxTrialNumber);     TRecord.Xmax:=MaxTrialNumber;
     BuildTRecord;
-    CRecord.modify(2,1,MaxTrialNumber);     CRecord.Xmax:=MaxTrialNumber;
-    LickRecord.modify(2,1,MaxTrialNumber);  LickRecord.Xmax:=MaxTrialNumber;
+    CRecord.modify(t_single,1,MaxTrialNumber);     CRecord.Xmax:=MaxTrialNumber;
+    LickRecord.modify(t_smallint,1,MaxTrialNumber);  LickRecord.Xmax:=MaxTrialNumber;
 
     // Initialize trial counter
     cnt:=0; // cnt is incremented at each call to SelectTrialType
