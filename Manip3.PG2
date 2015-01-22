@@ -2526,7 +2526,6 @@ var
   NREFRE,NC0,tremain:integer;
   Address:string;
 begin
-
   display('wait for no lick');
   Address:=Dev+'/AI0';
   if DetectionType=2 then 
@@ -2541,7 +2540,7 @@ begin
   t0:=TimeGetTime;
   NC0:=0;
   NREFRE:=floor(1000/del);
-  WaitVect.create(5,1,NREFRE);
+  WaitVect.create(5,1,NREFRE);  
   repeat
     delay(floor(del));
     tremain:=RefractoryTime-(TimeGetTime-t0);
@@ -2549,7 +2548,6 @@ begin
     Ni.Ain(Address,1,LickV);
     NC0:=NC0+1; WaitVect[NC0]:=LickV;
     if ((DetectionType=2) AND (LickV<thresh)) OR ((DetectionType=4) AND (LickV>thresh)) then t0:=TimeGetTime;
-
     if NC0>=NREFRE then
       begin
           if DetectionType=2 then Vbase:=WaitVect.Maxi0*1000 else Vbase:=0;
@@ -2557,7 +2555,7 @@ begin
           thresh:=(Vbase+LickThresholdUser)/1000;
           NC0:=0;
       end;
-
+    visualStim.TestStopStim;
   until (tremain<=0) OR Visualstim.StopStim;
   display('Trial');
 end;
