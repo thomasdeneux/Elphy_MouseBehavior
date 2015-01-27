@@ -22,8 +22,8 @@ var
   TRecord: Tvector;
   WaitVect: Tvector;
   LickRecord: Tvector;
-  vfilt: Tvector;
-  NIanalog, Ni: TNIinterface;
+  vfilt, vfilt2: Tvector;
+  NIanalog, NInoclock, NIcounter: TNIinterface;
   ParamWin: Tdialog;
   OkParamWin: boolean; // tells whether ParamWin has been initialized already
   FileList: Tmemo;
@@ -147,10 +147,11 @@ var
   TrialInterval: integer;
   // (behavior)
   DetectionType,RewardCriterion: word;
+  SymmetricBehavior: boolean;
   TaskType: word; // 1 for S+, 2 for S-
   LickThresholdTop, LickThresholdBottom: real;
   LickNumber,NFreeTrials: integer; 
-  rewardVolume, rewardSlope: real;  
+  rewardVolume: real;  
   // (visual stim)
   VStimType: word; // no menu
   BackgroundLuminance: integer;
@@ -283,6 +284,7 @@ begin
   TrialInterval:=0;
   // (behavior)
   DetectionType:=2;
+  SymmetricBehavior:=False;
   RewardCriterion:=1;
   TaskType:=1;
   LickThresholdTop:=4000;
@@ -290,7 +292,6 @@ begin
   LickNumber:=1;
   NFreeTrials:=0;
   rewardVolume:=8;
-  rewardSlope:=0;
   // (visual stim)  
   BackgroundLuminance:=25;
   KeepGratingOn:=FALSE;
@@ -369,6 +370,7 @@ begin
   parlist.TrialInterval := db_integer;
   // (behavior)
   parlist.DetectionType := db_integer;
+  parlist.SymmetricBehavior := db_boolean;
   parlist.RewardCriterion := db_integer;
   parlist.TaskType := db_integer;
   parlist.LickThresholdTop := db_real;
@@ -376,7 +378,6 @@ begin
   parlist.LickNumber := db_integer; 
   parlist.NFreeTrials := db_integer; 
   parlist.rewardVolume := db_real;  
-  parlist.rewardSlope := db_real;  
   // (visual stim)
   parlist.VStimType := db_integer;
   parlist.BackgroundLuminance := db_integer;
@@ -458,6 +459,7 @@ begin
     Addline('TrialInterval'+';'+Istr(TrialInterval));
     // (behavior)
     Addline('DetectionType'+';'+Istr(DetectionType));
+    Addline('SymmetricBehavior'+';'+Bstr(SymmetricBehavior));
     Addline('RewardCriterion'+';'+Istr(RewardCriterion));
     Addline('TaskType'+';'+Istr(TaskType));
     Addline('LickThresholdTop'+';'+Rstr(LickThresholdTop));
@@ -465,7 +467,6 @@ begin
     Addline('LickNumber'+';'+Istr(LickNumber)); 
     Addline('NFreeTrials'+';'+Istr(NFreeTrials)); 
     Addline('rewardVolume'+';'+Rstr(rewardVolume));  
-    Addline('rewardSlope'+';'+Rstr(rewardSlope));  
     // (visual stim)
     Addline('VStimType'+';'+Istr(VStimType));
     Addline('BackgroundLuminance'+';'+Istr(BackgroundLuminance));
@@ -521,7 +522,7 @@ var
   vtype: integer;
 begin
   // Some old parameters do not exist any more!!
-  if fieldname='DoMask' then
+  if (fieldname='DoMask') or (fieldname='rewardSlope') then
     ErrorDlg('Parameter name "'+fieldname+'" does not exist any more')
   else
   begin
@@ -571,6 +572,7 @@ begin
   if spar.fieldExists('TrialInterval') then TrialInterval:=spar.TrialInterval;
   // (behavior)
   if spar.fieldExists('DetectionType') then DetectionType:=spar.DetectionType;
+  if spar.fieldExists('SymmetricBehavior') then SymmetricBehavior:=spar.SymmetricBehavior;
   if spar.fieldExists('RewardCriterion') then RewardCriterion:=spar.RewardCriterion;
   if spar.fieldExists('TaskType') then TaskType:=spar.TaskType;
   if spar.fieldExists('LickThresholdTop') then LickThresholdTop:=spar.LickThresholdTop;
@@ -578,7 +580,6 @@ begin
   if spar.fieldExists('LickNumber') then LickNumber:=spar.LickNumber; 
   if spar.fieldExists('NFreeTrials') then NFreeTrials:=spar.NFreeTrials; 
   if spar.fieldExists('rewardVolume') then rewardVolume:=spar.rewardVolume;  
-  if spar.fieldExists('rewardSlope') then rewardSlope:=spar.rewardSlope;  
   // (visual stim)
   if spar.fieldExists('VStimType') then VStimType:=spar.VStimType;
   if spar.fieldExists('BackgroundLuminance') then BackgroundLuminance:=spar.BackgroundLuminance;
@@ -700,13 +701,13 @@ begin
   mpar2.TrialInterval:=TrialInterval;  
   // (behavior)
   mpar2.DetectionType:=DetectionType;
+  mpar2.SymmetricBehavior:=SymmetricBehavior;
   mpar2.RewardCriterion:=RewardCriterion;
   mpar2.LickThresholdTop:=LickThresholdTop;
   mpar2.LickThresholdBottom:=LickThresholdBottom;
   mpar2.LickNumber:=LickNumber;
   mpar2.NFreeTrials:=NFreeTrials;
   mpar2.rewardVolume:=rewardVolume;
-  mpar2.rewardSlope:=rewardSlope;
   // (visual stim)  
   mpar2.BackgroundLuminance:=BackgroundLuminance;
   mpar2.KeepGratingOn:=KeepGratingOn;
@@ -765,13 +766,13 @@ begin
   TrialInterval:=mpar2.TrialInterval;  
   // (behavior)
   DetectionType:=mpar2.DetectionType;
+  if mpar2.fieldExists('SymmetricBehavior') then SymmetricBehavior:=mpar2.SymmetricBehavior else SymmetricBehavior:=False;
   if mpar2.fieldExists('RewardCriterion') then RewardCriterion:=mpar2.RewardCriterion else RewardCriterion:=1;
   LickThresholdTop:=mpar2.LickThresholdTop;
   LickThresholdBottom:=mpar2.LickThresholdBottom;
   LickNumber:=mpar2.LickNumber;
   NFreeTrials:=mpar2.NFreeTrials;
   if mpar2.fieldExists('rewardVolume') then rewardVolume:=mpar2.rewardVolume else if rewardConversion>0 then rewardVolume:=mpar2.ValveOpenTime/rewardConversion else rewardVolume:=0;
-  if mpar2.fieldExists('rewardSlope') then rewardSlope:=mpar2.rewardSlope else rewardSlope:=0;
   // (visual stim)  
   if mpar2.fieldExists('BackgroundLuminance') then BackgroundLuminance:=mpar2.BackgroundLuminance else BackgroundLuminance:=25;
   if mpar2.fieldExists('KeepGratingOn') then KeepGratingOn:=mpar2.KeepGratingOn else KeepGratingOn:=FALSE;
@@ -1087,23 +1088,23 @@ begin
 end;
 
 // Start the experiment only if the parameters obey the following rules
+function ERR(str:string):boolean;
+begin
+  ErrorDlg(str);
+  ERR:=False;
+end;
 function CheckCurrentSettings:boolean;
 var
   test: boolean;
 begin
   CheckCurrentSettings:=TRUE;
+  // checks for several stim per episode
   if NStimPerEp>1 then
   begin
     if (not Auditory) and (not Visual) then
-    begin
-      ErrorDlg('Neither Visual nor Auditory is selected!');
-      CheckCurrentSettings:=FALSE;
-    end;
+      CheckCurrentSettings:=ERR('Neither Visual nor Auditory is selected!');
     if Behavior then
-    begin
-      ErrorDlg('Several Stim per Episode is valid only for passive experiments.');
-      CheckCurrentSettings:=FALSE;
-    end;
+      CheckCurrentSettings:=ERR('Several Stim per Episode is valid only for passive experiments.');
     if Visual then
     begin
       for i:=1 to NStim do
@@ -1112,15 +1113,17 @@ begin
       end;
     end;
     if TrialInterval<max(1000,VisualStimDuration+RewardDelay+100) then
-    begin
-      ErrorDlg('Several Stim per Episode: Min Trial Interval must be greater than VisualStimDuration+RewardDelay+100ms and at least 1 second.');
-      CheckCurrentSettings:=FALSE;
-    end;
+      CheckCurrentSettings:=ERR('Several Stim per Episode: Min Trial Interval must be greater than VisualStimDuration+RewardDelay+100ms and at least 1 second.');
     if (MaxTrialNumber mod NStimPerEp)<>0 then
-    begin
-      ErrorDlg('Number of Stim per Episode must divide total number of trials.');
-      CheckCurrentSettings:=FALSE;
-    end;
+      CheckCurrentSettings:=ERR('Number of Stim per Episode must divide total number of trials.');
+  end;
+  // checks for symmetric behavior
+  if Behavior and SymmetricBehavior then
+  begin
+    if DetectionType<>4 then
+      CheckCurrentSettings:=ERR('Symmetric Behavior possible only with active electric lick detection');
+    if RewardCriterion<>1 then
+      CheckCurrentSettings:=ERR('Immediate reward not possible in Symmetric Behavior');    
   end;
 
 end;
@@ -1272,12 +1275,12 @@ begin
       // Behavior
       selectPanel('1.2.3');
       getstringList1('Detection Type',DetectionList,DetectionType);
+      getBoolean('Symmetric Behavior',SymmetricBehavior);
       getstringList1('Reward  Criterion',RewardCriterionList,RewardCriterion);
       getInteger('Minimal lick number',LickNumber,5);
       getReal('Sensor top threshold (mV)',LickThresholdTop,5,1);
       getReal('Sensor bottom threshold (mV)',LickThresholdBottom,5,1);
       getReal('Reward volume (ul)',rewardVolume,5,1);
-      getReal('Extra reward per extra lick (ul)',rewardSlope,5,1);
       getInteger('# free training trials',NFreeTrials,5);
     
       // Visual parameters
@@ -1363,7 +1366,12 @@ procedure FillPage;
 begin
   with MGpage['Behavior'] do
   begin
-   addobject(1,v[1]);   vfilt.create;   addobject(1,vfilt);
+   addobject(1,v[1]);   
+   vfilt.create;   addobject(1,vfilt);
+   addobject(1,v[2]);   
+   vfilt2.create;   addobject(1,vfilt2);
+   v1.CpX:=1; vfilt.CpX:=1; v2.CpX:=1; vfilt2.CpX:=1;
+   v1.CpY:=1; vfilt.CpY:=1; v2.CpY:=1; vfilt2.CpY:=1;
    addobject(2,LickRecord);
    addobject(3,CRecord);
    PageFont := true;
@@ -1383,8 +1391,8 @@ procedure ChooseImages;forward;
 procedure TestVisualStim(doAudio:boolean);forward;
 procedure ChooseSounds;forward;
 procedure TestSounds;forward;
-procedure OpenValve(volume:real);forward;
-procedure OpenCloseValve;forward;
+procedure OpenValve(volume:real;side:smallint);forward;
+procedure OpenCloseValve(side:smallint);forward;
 procedure CalibDLPImage;forward;
 
 // Update parameters display, including the name of the parameter file
@@ -1416,9 +1424,9 @@ begin
     105: SaveLocalParameters; // rewardConversion has changed
     // General parameters
     201: RunTheExp;
-    203: OpenValve(rewardVolume);
-    204: for i:=1 to LickNumber do begin delay(300); display(Istr(i)); OpenValve(rewardVolume); end;
-    205: OpenCloseValve;
+    203: OpenValve(rewardVolume,1);
+    204: for i:=1 to LickNumber do begin delay(300); display(Istr(i)); OpenValve(rewardVolume,1); end;
+    205: OpenCloseValve(0);
     206: TestVisualStim(TRUE);
     // Visual parameters
     301: begin ChooseImages; ParChg:=true; end;
@@ -2233,6 +2241,7 @@ procedure setAudioStim(immediateStart:boolean);
 begin
   with NIanalog do
   begin
+    free;
     create(Dev);
     setAnalogOutput(0,1000/Sound_Sampling_Frequency,SDuration,FALSE);
     VCopy(Sounds[ICond],vector);
@@ -2274,29 +2283,38 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 // Opens transiently the water valve
-procedure OpenValve(volume: real);
+procedure OpenValve(volume: real; side: smallint);
+var
+  outNum: integer;
 begin
-  with NIanalog do
+  with NIcounter do
   begin
+    free;
     create(Dev);
-    setAnalogOutput(1,1,volume*rewardConversion,false);
-    vector.fill(5000);
-    vector[vector.Iend]:=0;
+    //setAnalogOutput(1,1,volume*rewardConversion,false);
+    //vector.fill(5000);
+    //vector[vector.Iend]:=0;
+    if side=1 then outNum:=9 else outNum:=10;
+    setCounterOutput(0,false,0,volume*rewardConversion/1000,0.1,false,16);
+    //display(Istr(vector.Iend)+'->'+Rstr(vector[vector.Iend]));
     start('');
     rewardTotal:=rewardTotal+volume;
     ParamWin.update;
     delay(Floor(volume*rewardConversion)+100);
-  end;
+    //status.text[4]:='reward '+Istr(side);
+    //delay(200);
+    //status.text[4]:='';
+ end;
 
 end;
 
 // Opens or close the water valve
-procedure OpenCloseValve;
+procedure OpenCloseValve(side:smallint);
 begin
   with NIanalog do
   begin
     create(Dev);
-    setAnalogOutput(1,1,10,false);
+    setDigitalOutput(0,0,1,10,false,0);
     vector.fill(5000*Ord(ValveOpen));
     start('');
     delay(100);
@@ -2309,132 +2327,177 @@ end;
 procedure RewardFunction;
 var
   det: Tdetect; // We use a Tdetect object for the lick detection
-  w,w1,w2: integer;
+  w,w2: integer;
+  rewardChannel: integer;
 begin
   Case DetectionType of
     // Head-fixed touch
     1:
     begin
-     with det do
+      with det do
       begin
-       create;
-       installSource(v1);
-       Xstart:=StimDelay+LickCountingDelay;
-       Xend:=StimDelay+VisualStimDuration+RewardDelay;
-       mode:= sm_crossDw;
-       Length:= 50;
-       height:= LickThresholdTop;
-       execute;
+        create;
+        installSource(v1);
+        Xstart:=StimDelay+LickCountingDelay;
+        Xend:=StimDelay+VisualStimDuration+RewardDelay;
+        mode:= sm_crossDw;
+        Length:= 50;
+        height:= LickThresholdTop;
+        execute;
      end;
-     w1:= det.count;
+     w:= det.count;
 
      with det do
-      begin
+     begin
        height:= LickThresholdBottom;
        execute;
-      end;
-     w2:= det.count;
-     if (w1<=w2) then w:=w1 else w:=w2;
+     end;
+     if (det.count<w) then w:=det.count;
     end;
     
     // Head-fixed licking
     2:
     begin
-    v1.CpX:=1;
-    v1.CpY:=1;
-    vfilt.CpX:=v1.CpX;
-    vfilt.CpY:=v1.CpY;
-    Filter(1,FALSE,2,10,v1,vfilt,v1.Xstart,v1.Xend);
-    vfilt.refresh;
-    with det do
+      v1.CpX:=1;
+      v1.CpY:=1;
+      vfilt.CpX:=v1.CpX;
+      vfilt.CpY:=v1.CpY;
+      Filter(1,FALSE,2,10,v1,vfilt,v1.Xstart,v1.Xend);
+      vfilt.refresh;
+      with det do
       begin
-       create;
-       installSource(vfilt);
-       Xstart:=StimDelay+LickCountingDelay;
-       Xend:=StimDelay+VisualStimDuration+RewardDelay;
-       mode:= sm_min;
-       height:= -LickThresholdBottom;
-       execute;
+        create;
+        installSource(vfilt);
+        Xstart:=StimDelay+LickCountingDelay;
+        Xend:=StimDelay+VisualStimDuration+RewardDelay;
+        mode:= sm_min;
+        height:= -LickThresholdBottom;
+        execute;
       end;
       w:= det.count;
       Vbase:=vfilt.Maxi0;
-     end;
+    end;
 
     // Freely moving
     3:
-     begin
+    begin
       vfilt.create;
       vcopy1(v1,vfilt);
       vfilt.Threshold1(LickThresholdTop);
       w:=100-floor(100*vfilt.Mean(StimDelay+VisualStimDuration,StimDelay+VisualStimDuration+RewardDelay));
-     end;
+    end;
      
-    // Head-fixed licking with active electric contact
+    // Head-fixed licking with active electric contact - possibley symmetric task
     4:
     begin
-    v1.CpX:=1;
-    v1.CpY:=1;
-    vfilt.CpX:=v1.CpX;
-    vfilt.CpY:=v1.CpY;
-    Filter(1,FALSE,2,10,v1,vfilt,v1.Xstart,v1.Xend);
-    vfilt.refresh;
-    with det do
+      Filter(1,FALSE,2,10,v1,vfilt,v1.Xstart,v1.Xend);
+      vfilt.refresh;
+      with det do
       begin
-       create;
-       installSource(vfilt);
-       Xstart:=StimDelay+LickCountingDelay;
-       Xend:=StimDelay+VisualStimDuration+RewardDelay;
-       mode:= sm_max;
-       height:= LickThresholdTop;
-       execute;
+        create;
+        installSource(vfilt);
+        Xstart:=StimDelay+LickCountingDelay;
+        Xend:=StimDelay+VisualStimDuration+RewardDelay;
+        mode:= sm_max;
+        height:= LickThresholdTop;
+        execute;
       end;
-      w:= det.count;
+      w:=det.count;
+      if SymmetricBehavior then
+      begin
+        Filter(1,FALSE,2,10,v2,vfilt2,v2.Xstart,v2.Xend);
+        vfilt2.refresh;
+        with det do
+        begin
+          installSource(vfilt2);
+          execute;
+        end;
+        w2:=det.count;
+      end;
       Vbase:=0;
-     end;
-
+    end;
+    
   end;
 
-  // Give the reward if correct answer to S+ (or free S+ trial)
-  if ((TaskType=1) OR (TaskType=3)) AND activeReward AND ((w>= LickNumber) OR (cnt<=NFreeTrials)) then 
-    OpenValve(Floor(rewardVolume+max(0,w-LickNumber)*rewardSlope));
+  // Give the reward if correct answer
+  rewardChannel:=0;
+  if SymmetricBehavior then
+  begin
+    if ((TaskType=1) OR (TaskType=3)) AND ((w>=w2+LickNumber) OR (cnt<=NFreeTrials)) then rewardChannel:=1
+    else if ((TaskType=2) OR (TaskType=4)) AND ((w2>=w+LickNumber) OR (cnt<=NFreeTrials)) then rewardChannel:=2;
+  end
+  else
+    if ((TaskType=1) OR (TaskType=3)) AND ((w>= LickNumber) OR (cnt<=NFreeTrials)) then rewardChannel:=1;
+  if (rewardChannel>0) AND activeReward then OpenValve(Floor(rewardVolume),rewardChannel);
      
   // Decide whether a punition should be given (in the form of an additional delay, inside the DoEpisode function)
-  DoPunition := ((TaskType=2) OR (TaskType=4)) AND (w>=LickNumber);
+  DoPunition := (not SymmetricBehavior) AND ((TaskType=2) OR (TaskType=4)) AND (w>=LickNumber);
   
   // Record the number of licks
-  status.text[5]:=Istr(w)+' lick(s)';
+  if SymmetricBehavior then
+    status.text[5]:=Istr(w)+'/'+Istr(w2)+' lick(s)'
+  else
+    status.text[5]:=Istr(w)+' lick(s)';
   LickRecord[cnt]:=w;
   
   // Record whether the trial was correct
-  status.text[3]:='';
+  status.text[3]:=''; 
   case TaskType of
-    1: CRecord[cnt] := Ord(w>=LickNumber);
-    2: CRecord[cnt] := Ord(w< LickNumber);
+    1: if SymmetricBehavior then
+         CRecord[cnt] := Ord(w>w2)*0.5 + Ord(w>=w2)*0.5
+       else
+         CRecord[cnt] := Ord(rewardChannel>0);
+    2: if SymmetricBehavior then
+         CRecord[cnt] := Ord(w2>w)*0.5 + Ord(w2>=w)*0.5
+       else
+         CRecord[cnt] := Ord(rewardChannel<=0);
     3..5: begin status.text[3]:='catched trial'; CRecord[cnt] := 0.5; end;
   end;
 end;
+ 
+procedure ImmediateRewardFunction(n:integer);
+begin
+  if ContinuousRec then
+    // continuous run with immediate rewards
+    OpenValve(rewardVolume,1)
+  else
+    // happens only in Go-NoGo behavior; reward if S+ and correct response
+    if ((TaskType=1) OR (TaskType=3)) AND (Vdetect[Vdetect.Iend]>StimDelay+LickCountingDelay) AND (activeReward) then
+    begin
+      OpenValve(rewardVolume,1);
+      activeReward:=FALSE;
+    end;
+end;
+
 
 {$EDIT Acquisition}
+////////////////////////////////////////////////////////////////////////////////
+///////////////////////////// Connections summary //////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+{
+AI0 lick
+AI1 IR fork or second lick
+AI2 (Zuzanna)
+AI3 electrophysiology (Zuzanna)
+AI4 feedback audio stimulation
+
+AO0 audio stim
+
+DO0 reward
+DO1 second reward
+DO7 trigger for audio (-> goes to PFI1)
+
+PFI0 2P trigger
+PFI1 trigger for audio
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// Detector routines ////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
 // CASE 1 : TRIGGER AN IMMEDIATE REWARD
 
-
-procedure ImmediateRewardFunction(n:integer);
-begin
-  if ContinuousRec then
-    // continuous run with immediate rewards
-    OpenValve(rewardVolume)
-  else
-    // reward if S+ and correct response
-    if ((TaskType=1) OR (TaskType=3)) AND (Vdetect[Vdetect.Iend]>StimDelay+LickCountingDelay) AND (activeReward) then
-    begin
-      OpenValve(rewardVolume);
-      activeReward:=FALSE;
-    end;
-end;
 
 procedure InitDetectorReward;
 begin
@@ -2509,7 +2572,7 @@ begin
   ref:=FALSE;
   NREF:=floor(RefractoryTime/del);
   repeat
-    Ni.Ain(Address,1,LickV);
+    NInoclock.Ain(Address,1,LickV);
     if LickV>=thresh then NC:=NC+1;
     if NC>=NREF then ref:=TRUE;
     if LickV<thresh then NC:=0;
@@ -2524,10 +2587,11 @@ var
   LickV,LickThresholdUser,thresh,del,RefreshTime:real;
   t0:longint;
   NREFRE,NC0,tremain:integer;
-  Address:string;
+  Address,Address2:string;
 begin
   display('wait for no lick');
   Address:=Dev+'/AI0';
+  if SymmetricBehavior then Address2:=Dev+'/AI1';
   if DetectionType=2 then 
     LickThresholdUser:=LickThresholdBottom 
   else if DetectionType=4 then
@@ -2545,9 +2609,14 @@ begin
     delay(floor(del));
     tremain:=RefractoryTime-(TimeGetTime-t0);
     display('wait for no lick: '+Rstr(tremain/1000,5,1));
-    Ni.Ain(Address,1,LickV);
+    NInoclock.Ain(Address,1,LickV);
     NC0:=NC0+1; WaitVect[NC0]:=LickV;
     if ((DetectionType=2) AND (LickV<thresh)) OR ((DetectionType=4) AND (LickV>thresh)) then t0:=TimeGetTime;
+    if SymmetricBehavior then
+    begin
+      NInoclock.Ain(Address2,1,LickV);
+      if ((DetectionType=2) AND (LickV<thresh)) OR ((DetectionType=4) AND (LickV>thresh)) then t0:=TimeGetTime;
+    end;
     if NC0>=NREFRE then
       begin
           if DetectionType=2 then Vbase:=WaitVect.Maxi0*1000 else Vbase:=0;
@@ -2569,12 +2638,12 @@ begin
   Address:=Dev+'/PORT1/LINE0';
   // first get a 0 bit (make sure previous acquisition has finished)
   repeat
-    ok:=Ni.Din(Address,dig);
+    ok:=NInoclock.Din(Address,dig);
     visualStim.TestStopStim;
   until (dig=0) OR Visualstim.StopStim;
   // then get a 1 bit (trigger)
   repeat
-    ok:=Ni.Din(Address,dig);
+    ok:=NInoclock.Din(Address,dig);
     visualStim.TestStopStim;
   until (dig>0) OR Visualstim.StopStim;
 end;
@@ -2621,7 +2690,7 @@ begin
     Fcontinuous:=false;
     if TRUE then
     begin
-      ChannelCount:=1; //2;
+      ChannelCount:=1+Ord(SymmetricBehavior);
       with Channels[1] do
       begin
         if Behavior then
@@ -2629,14 +2698,23 @@ begin
             1: PhysNum:=1;
             2: PhysNum:=0;
             3: PhysNum:=1;
-            4: PhysNum:=0;
+            4..5: PhysNum:=0;
           end
         else
-          PhysNum:=1; // nothing to record -> record audio stim, just for fun
+          PhysNum:=0; // nothing to record -> record audio stim, just for fun
         UnitY:='mV';
         setScale(0,32767,0,10000);
         DownSamplingFactor:= 1;
       end;
+      if Behavior and SymmetricBehavior then
+      with Channels[2] do
+      begin
+        if DetectionType<>4 then ErrorDlg('Symmetric Behavior requires active electric lick detection');
+        PhysNum:=1;
+        UnitY:='mV';
+        setScale(0,32767,0,10000);
+        DownSamplingFactor:= 1;
+      end;             
       Fstimulate:=true;
     end
     else
@@ -2887,6 +2965,7 @@ if VisualStim.OpenDataFile then
     TRecord.modify(t_smallint,1,MaxTrialNumber);     TRecord.Xmax:=MaxTrialNumber;
     BuildTRecord;
     CRecord.modify(t_single,1,MaxTrialNumber);     CRecord.Xmax:=MaxTrialNumber;
+    CRecord.fill(0.35);
     LickRecord.modify(t_smallint,1,MaxTrialNumber);  LickRecord.Xmax:=MaxTrialNumber;
 
     // Initialize trial counter
@@ -2903,10 +2982,10 @@ if VisualStim.OpenDataFile then
       else
       begin
         Address:=Dev+'/AI0';
-        Ni.Ain(Address,1,tmp);
+        NInoclock.Ain(Address,1,tmp);
         Vbase:=tmp*1000;
         delay(50);
-        Ni.Ain(Address,1,tmp);
+        NInoclock.Ain(Address,1,tmp);
         if (tmp*1000>Vbase) then Vbase:=tmp*1000;
         status.text[4]:='Vbase=' + Rstr(Vbase,5,2);
       end;
@@ -2999,5 +3078,19 @@ end;
 /////////////////////////////////// Program ////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+procedure sendDigital;
+begin
+NIanalog.create('Dev2');
+NIanalog.setDigitalOutput(0,3,0.01,1000,false,0);
+NIanalog.vector.sinewave(5000,50,0);
+NIanalog.vector.Threshold1(0);
+NIanalog.vector[NIanalog.vector.Iend]:=0;
+NIanalog.start('');
+end;
+
 program 'Open program'
 Opening_procedure;
+
+program 'test'
+sendDigital;
+
