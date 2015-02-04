@@ -1244,7 +1244,7 @@ begin
     
     getRealA('Reward conversion (ms/ul)',rewardConversion,4,1,105);
     getRealA('Total Reward (ul)',rewardTotal,4,1,106);
-    setText(''); // add a separation line
+    //setText(''); // add a separation line
   
     if DoMenu then
     begin
@@ -1317,23 +1317,26 @@ begin
       getBoolean('Equalization',Equalization);
     end else
     begin
+      setText(''); // add a separation line
       // Very simplified menu with no protocol parameter
       selectPanel('1.2');
       //getstringList1('Trigger',TriggerList,TriggerType);
       getInteger('Max. trial number',MaxTrialNumber,5);
       setText(''); // add a separation line
       getCommandA('Test visual stim', Go,302);
-      getCommandA('Test sounds', Go,402);      
+      getCommandA('Test sounds', Go,402);   
+      setText(''); // add a separation line   
     end;
 
     // Main commands
     selectPanel('1.3');
-    setText(''); // add a separation line
+    //setText(''); // add a separation line
     getCommandA('Start', Go,201);
-    getCommandA('Test stim', Go,206);
-    getCommandA('Give 1 reward', Go,203);
-    getCommandA('Give [lick number] rewards', Go,204);
-    getBooleanA('Valve Open', ValveOpen,205);
+    getCommandA('Test stim', Go,202);
+    getCommandA('Give 1 reward (+)', Go,203);
+    getCommandA('Give 1 reward (-)', Go,204);
+    getCommandA('Give [lick number] rewards', Go,205);
+    getBooleanA('Valve Open', ValveOpen,206);
   
     // Assign callbacks
     OnEvent:=ParamWinCallback;
@@ -1424,10 +1427,11 @@ begin
     105: SaveLocalParameters; // rewardConversion has changed
     // General parameters
     201: RunTheExp;
+    202: TestVisualStim(TRUE);
     203: OpenValve(rewardVolume,1);
-    204: for i:=1 to LickNumber do begin delay(300); display(Istr(i)); OpenValve(rewardVolume,1); end;
-    205: OpenCloseValve(0);
-    206: TestVisualStim(TRUE);
+    204: OpenValve(rewardVolume,2);
+    205: for i:=1 to LickNumber do begin delay(300); display(Istr(i)); OpenValve(rewardVolume,1); end;
+    206: OpenCloseValve(1);
     // Visual parameters
     301: begin ChooseImages; ParChg:=true; end;
     302: TestVisualStim(FALSE);
@@ -2285,7 +2289,7 @@ end;
 // Opens transiently the water valve
 procedure OpenValve(volume: real; side: smallint);
 var
-  outNum: integer;
+  counter, outNum: integer;
 begin
   with NIcounter do
   begin
@@ -2294,9 +2298,11 @@ begin
     //setAnalogOutput(1,1,volume*rewardConversion,false);
     //vector.fill(5000);
     //vector[vector.Iend]:=0;
-    if side=1 then outNum:=9 else outNum:=10;
-    setCounterOutput(0,false,0,volume*rewardConversion/1000,0.1,false,16);
-    //display(Istr(vector.Iend)+'->'+Rstr(vector[vector.Iend]));
+    if side=1 then 
+      begin counter:=0; outNum:=9; end
+    else 
+      begin counter:=1; outNum:=10; end;
+    setCounterOutput(counter,false,0,volume*rewardConversion/1000,0.1,false,outNum);
     start('');
     rewardTotal:=rewardTotal+volume;
     ParamWin.update;
@@ -2310,12 +2316,17 @@ end;
 
 // Opens or close the water valve
 procedure OpenCloseValve(side:smallint);
+var
+  counter, outNum: integer;
 begin
-  with NIanalog do
+  with NIcounter do
   begin
     create(Dev);
-    setDigitalOutput(0,0,1,10,false,0);
-    vector.fill(5000*Ord(ValveOpen));
+    if side=1 then 
+      begin counter:=0; outNum:=9; end
+    else 
+      begin counter:=1; outNum:=10; end;
+    setCounterOutput(counter,ValveOpen,0,0.01,0.01,false,outNum);
     start('');
     delay(100);
   end;
