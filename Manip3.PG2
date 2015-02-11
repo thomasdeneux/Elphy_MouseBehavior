@@ -19,9 +19,9 @@ var
   bstream: TVSstream;
   circle: Tdisk;
   CRecord: Tvector;
-  TRecord: Tvector;
+  TRecord, TPrebuild: Tvector; // trial type (if DoRepeat is false, they will be identical; if DoRepeat is true, Trecord can have repetitions of elements in TPrebuild)
   WaitVect: Tvector;
-  LickRecord: Tvector;
+  LickRecord, LickRecord2: Tvector;
   vfilt, vfilt2: Tvector;
   NIanalog, NInoclock, NIcounter: TNIinterface;
   ParamWin: Tdialog;
@@ -32,7 +32,7 @@ var
   Sounds: array [1..10000] of TVector;
   LoadedSounds: array [1..10000] of TVector;
   MaxSoundDuration: real;
-  detector: Tdetector;
+  detector, detector2: Tdetector;
   Vdetect: Tvector;
   level:TDBRecord; 
   RandomizationVector: TVector;
@@ -42,11 +42,13 @@ var
   res: integer;
   gh,Vbase:real;
   time0:integer;
-  cnt, ICond: integer;
+  cnt, cntCond, ICond: integer;
   
   ValveOpen: boolean;
+  DefaultValve: integer;
   rewardTotal: real;
   activeReward, DoPunition: boolean;
+  condRepeat: integer;
   
   status: TstatusBar;     // use display('some text') or status.text[k]:='some text' to display some text in the status bar
 
@@ -148,6 +150,7 @@ var
   // (behavior)
   DetectionType,RewardCriterion: word;
   SymmetricBehavior: boolean;
+  DoRepeatCondition: boolean; // repeat condition if response is not correct
   TaskType: word; // 1 for S+, 2 for S-
   LickThresholdTop, LickThresholdBottom: real;
   LickNumber,NFreeTrials: integer; 
@@ -285,6 +288,7 @@ begin
   // (behavior)
   DetectionType:=2;
   SymmetricBehavior:=False;
+  DoRepeatCondition:=False;
   RewardCriterion:=1;
   TaskType:=1;
   LickThresholdTop:=4000;
@@ -371,6 +375,7 @@ begin
   // (behavior)
   parlist.DetectionType := db_integer;
   parlist.SymmetricBehavior := db_boolean;
+  parlist.DoRepeatCondition := db_boolean;
   parlist.RewardCriterion := db_integer;
   parlist.TaskType := db_integer;
   parlist.LickThresholdTop := db_real;
@@ -460,6 +465,7 @@ begin
     // (behavior)
     Addline('DetectionType'+';'+Istr(DetectionType));
     Addline('SymmetricBehavior'+';'+Bstr(SymmetricBehavior));
+    Addline('DoRepeatCondition'+';'+Bstr(DoRepeatCondition));
     Addline('RewardCriterion'+';'+Istr(RewardCriterion));
     Addline('TaskType'+';'+Istr(TaskType));
     Addline('LickThresholdTop'+';'+Rstr(LickThresholdTop));
@@ -573,6 +579,7 @@ begin
   // (behavior)
   if spar.fieldExists('DetectionType') then DetectionType:=spar.DetectionType;
   if spar.fieldExists('SymmetricBehavior') then SymmetricBehavior:=spar.SymmetricBehavior;
+  if spar.fieldExists('DoRepeatCondition') then DoRepeatCondition:=spar.DoRepeatCondition;
   if spar.fieldExists('RewardCriterion') then RewardCriterion:=spar.RewardCriterion;
   if spar.fieldExists('TaskType') then TaskType:=spar.TaskType;
   if spar.fieldExists('LickThresholdTop') then LickThresholdTop:=spar.LickThresholdTop;
@@ -702,6 +709,7 @@ begin
   // (behavior)
   mpar2.DetectionType:=DetectionType;
   mpar2.SymmetricBehavior:=SymmetricBehavior;
+  mpar2.DoRepeatCondition:=DoRepeatCondition;
   mpar2.RewardCriterion:=RewardCriterion;
   mpar2.LickThresholdTop:=LickThresholdTop;
   mpar2.LickThresholdBottom:=LickThresholdBottom;
@@ -767,6 +775,7 @@ begin
   // (behavior)
   DetectionType:=mpar2.DetectionType;
   if mpar2.fieldExists('SymmetricBehavior') then SymmetricBehavior:=mpar2.SymmetricBehavior else SymmetricBehavior:=False;
+  if mpar2.fieldExists('DoRepeatCondition') then DoRepeatCondition:=mpar2.DoRepeatCondition else DoRepeatCondition:=False;
   if mpar2.fieldExists('RewardCriterion') then RewardCriterion:=mpar2.RewardCriterion else RewardCriterion:=1;
   LickThresholdTop:=mpar2.LickThresholdTop;
   LickThresholdBottom:=mpar2.LickThresholdBottom;
@@ -999,6 +1008,8 @@ begin
     addLine('none');
     addLine('Squares at 2 positions');
     addLine('Disks at 2 positions');
+    addLine('Squares at 2 positions and common disk');
+    addLine('Star-Square + Luminance');
   end;  
   AllListMemo.addLine('VisualProtocols');
   for i:=1 to VisualProtocols.count do AllListMemo.addLine(Istr(i)+';'+VisualProtocols.lines[i]);
@@ -1055,6 +1066,7 @@ begin
   DoMenu:=TRUE;
   SoundList.create; // must be created even if it will not be used -> can be saved then
   ImageList.create; // same
+  DefaultValve:=1;
 
   // local parameters
   InitLocalParameters;
@@ -1105,6 +1117,8 @@ begin
       CheckCurrentSettings:=ERR('Neither Visual nor Auditory is selected!');
     if Behavior then
       CheckCurrentSettings:=ERR('Several Stim per Episode is valid only for passive experiments.');
+    if DoRepeatCondition then
+      CheckCurrentSettings:=ERR('Several Stim per Episode is not compatible with repeating condition upon incorrectness.'); // anyway DoRepeatCond should be set only in Behavior mode...
     if Visual then
     begin
       for i:=1 to NStim do
@@ -1122,8 +1136,6 @@ begin
   begin
     if DetectionType<>4 then
       CheckCurrentSettings:=ERR('Symmetric Behavior possible only with active electric lick detection');
-    if RewardCriterion<>1 then
-      CheckCurrentSettings:=ERR('Immediate reward not possible in Symmetric Behavior');    
   end;
 
 end;
@@ -1180,6 +1192,10 @@ begin
           8: begin VStimType:=8; stimtable[i].Vx:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; stimtable[i].Vy:=beta1*(1-ObjValueV)+beta2*ObjValueV; end; 
           // Circles at 2 positions
           9: begin VStimType:=5; stimtable[i].Vx:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; stimtable[i].Vy:=beta1*(1-ObjValueV)+beta2*ObjValueV; end; 
+          // Circles at 2 positions and common disk
+          10: ErrorDlg('circles at 2 positions and common disk not implemented in this version of the program');
+          // Start-Square + Luminance
+          11: begin VStimType:=1; stimtable[i].VAlpha:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; stimtable[i].VLum:=beta1*(1-ObjValueV)+beta2*ObjValueV; end;
         end
       else
         VStimType:=7;
@@ -1276,6 +1292,7 @@ begin
       selectPanel('1.2.3');
       getstringList1('Detection Type',DetectionList,DetectionType);
       getBoolean('Symmetric Behavior',SymmetricBehavior);
+      getBoolean('Repeat condition until correct',DoRepeatCondition);
       getstringList1('Reward  Criterion',RewardCriterionList,RewardCriterion);
       getInteger('Minimal lick number',LickNumber,5);
       getReal('Sensor top threshold (mV)',LickThresholdTop,5,1);
@@ -1375,7 +1392,10 @@ begin
    vfilt2.create;   addobject(1,vfilt2);
    v1.CpX:=1; vfilt.CpX:=1; v2.CpX:=1; vfilt2.CpX:=1;
    v1.CpY:=1; vfilt.CpY:=1; v2.CpY:=1; vfilt2.CpY:=1;
+   v2.color:=CL_Aqua; vfilt2.color:=CL_Aqua;
    addobject(2,LickRecord);
+   addobject(2,LickRecord2);
+   LickRecord2.color:=CL_Aqua;
    addobject(3,CRecord);
    PageFont := true;
    scalecolor := rgb(10,10,10);
@@ -1428,10 +1448,10 @@ begin
     // General parameters
     201: RunTheExp;
     202: TestVisualStim(TRUE);
-    203: OpenValve(rewardVolume,1);
-    204: OpenValve(rewardVolume,2);
-    205: for i:=1 to LickNumber do begin delay(300); display(Istr(i)); OpenValve(rewardVolume,1); end;
-    206: OpenCloseValve(1);
+    203: begin DefaultValve:=1; OpenValve(rewardVolume,1); end;
+    204: begin DefaultValve:=2; OpenValve(rewardVolume,2); end;
+    205: for i:=1 to LickNumber do begin delay(300); display(Istr(i)); OpenValve(rewardVolume,DefaultValve); end;
+    206: OpenCloseValve(DefaultValve);
     // Visual parameters
     301: begin ChooseImages; ParChg:=true; end;
     302: TestVisualStim(FALSE);
@@ -1626,9 +1646,10 @@ begin
     create;
     AddImage(ImageList.lines[ImageIdx]);
     // additional images: this is tricky, need to read TRecord in advance
+    if DoRepeatCondition then ErrorDlg('When DoRepeat is set to true, TRecord and TPrebuild do not match');
     for i:=2 to NStimPerEp do 
     begin
-      j:=TRecord.JValue[cnt+(i-1)];
+      j:=Tprebuild.JValue[cnt+(i-1)];
       k:=StimTable[j].ImageIdx;
       AddImage(ImageList.lines[k]);
     end;
@@ -2421,6 +2442,10 @@ begin
         with det do
         begin
           installSource(vfilt2);
+          Xstart:=StimDelay+LickCountingDelay;
+          Xend:=StimDelay+VisualStimDuration+RewardDelay;
+          mode:= sm_max;
+          height:= LickThresholdTop;
           execute;
         end;
         w2:=det.count;
@@ -2450,6 +2475,7 @@ begin
   else
     status.text[5]:=Istr(w)+' lick(s)';
   LickRecord[cnt]:=w;
+  if SymmetricBehavior then LickRecord2[cnt]:=w2;
   
   // Record whether the trial was correct
   status.text[3]:=''; 
@@ -2464,6 +2490,8 @@ begin
          CRecord[cnt] := Ord(rewardChannel<=0);
     3..5: begin status.text[3]:='catched trial'; CRecord[cnt] := 0.5; end;
   end;
+  if DoRepeatCondition AND (CondRepeat>0) then Crecord[cnt] := 0.5 + (Crecord[cnt]-0.5)/5; // if we are repeating a previous repetition, mark correctness more lightly
+  if DoRepeatCondition AND (CRecord[cnt]<=0.5) then inc(CondRepeat) else CondRepeat:=0; //if not correct in DoRepeatCondition mode, set for repeating the same condition at next trial
 end;
  
 procedure ImmediateRewardFunction(n:integer);
@@ -2476,6 +2504,20 @@ begin
     if ((TaskType=1) OR (TaskType=3)) AND (Vdetect[Vdetect.Iend]>StimDelay+LickCountingDelay) AND (activeReward) then
     begin
       OpenValve(rewardVolume,1);
+      activeReward:=FALSE;
+    end;
+end;
+
+procedure ImmediateRewardFunction2(n:integer);
+begin
+  if ContinuousRec then
+    // continuous run with immediate rewards
+    OpenValve(rewardVolume,2)
+  else
+    // happens only in Go-NoGo behavior; reward if S+ and correct response
+    if ((TaskType=2) OR (TaskType=4)) AND (Vdetect[Vdetect.Iend]>StimDelay+LickCountingDelay) AND (activeReward) then
+    begin
+      OpenValve(rewardVolume,2);
       activeReward:=FALSE;
     end;
 end;
@@ -2523,6 +2565,18 @@ begin
     initCrossings(v1,Vdetect, true,false, LickThresholdTop+Vbase,LickThresholdBottom+Vbase, 100, Vbase,false);
     AddEvent(ImmediateRewardFunction,0);
   end;
+  if SymmetricBehavior then
+  begin
+    with detector2 do
+    begin
+      create;
+      // detector events are initiated by threshold crossing:
+      // arguments 3 and 4 tell whether up-crossings and down-crossings generate an event
+      status.text[4]:='Vbase='+Rstr(Vbase,5,2);
+      initCrossings(v2,Vdetect, true,false, LickThresholdTop+Vbase,LickThresholdBottom+Vbase, 100, Vbase,false);
+      AddEvent(ImmediateRewardFunction2,0);
+    end; 
+  end;
 end;
 
 // CASE 2 : RYTHMICALLY UPDATE THE IMAGE/SOUND TO BE PLAYED
@@ -2561,7 +2615,10 @@ end;
 // THE LINES BELOW ARE NECESSARY FOR THE DETECTOR TO ACT WHEN IN CONTINUOUS ACQUISITION MODE
 
 ProcessCont
-detector.update(v1.Iend);
+begin
+  detector.update(v1.Iend);
+  if SymmetricBehavior then detector2.update(v2.Iend);
+end;
 
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// Trigger routines /////////////////////////////////
@@ -2712,7 +2769,7 @@ begin
             4..5: PhysNum:=0;
           end
         else
-          PhysNum:=0; // nothing to record -> record audio stim, just for fun
+          PhysNum:=4; // nothing to record -> record audio stim, just for fun
         UnitY:='mV';
         setScale(0,32767,0,10000);
         DownSamplingFactor:= 1;
@@ -2818,6 +2875,12 @@ begin
    Ymin:=0;
    Ymax:=20;
   end;
+  with LickRecord2 do
+  begin
+   create(t_smallint,0,1);
+   Ymin:=0;
+   Ymax:=20;
+  end;
   with CRecord do
   begin
    create(t_single,0,1);
@@ -2825,6 +2888,7 @@ begin
    Ymax:=2;
   end;
   TRecord.create(t_smallint,1,1);
+  TPrebuild.create(t_smallint,1,1);
 
   // Put vectors into windows and build the menus (though they were already built in 'InitSettings')
   FillPage;
@@ -2838,7 +2902,7 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 // Randomization function
-procedure BuildTRecord;
+procedure PrebuildTrialTypes;
 var
    i,j,idx,nblock,tmp:integer;
 begin
@@ -2849,9 +2913,9 @@ begin
     for j:=0 to NRepPerBlock-1 do
       RandomizationVector[(i-1)*NRepPerBlock+j] := i;
   // Loop on trial number
-  for cnt:=1 to MaxTrialNumber do
+  for cntCond:=1 to MaxTrialNumber do
   begin
-    idx := (cnt-1) mod nblock;
+    idx := (cntCond-1) mod nblock;
     // re-shuffle vector?
     if idx=0 then
       for i:=0 to nblock-1 do
@@ -2862,18 +2926,22 @@ begin
         RandomizationVector[j] := tmp;
       end;
     // get trial type
-    TRecord[cnt]:=RandomizationVector.JValue[idx];
+    TPrebuild[cntCond]:=RandomizationVector.JValue[idx];
   end;
   cnt:=0; // reinit trial counter
+  cntCond:=0; // reinit condition counters
+  CondRepeat:=0; // first trial is not a repeat
 end;
 
-// Select trial type, update stim parameters
+// Select trial type, update stim parameters, fill-in TRecord
 procedure SelectTrialType;
 begin
-  // increment stim count (starts at 1 for the first trial)
+  // increment trial and condition counts (starts at 1 for the first trial)
   inc(cnt);
+  if CondRepeat=0 then inc(cntCond);
   // get trial type
-  ICond:=TRecord.JValue[cnt];
+  ICond:=TPrebuild.JValue[cntCond];
+  TRecord[cnt]:=Icond;
   // update stim parameters
   Record2Par(StimTable[ICond]);
   // display
@@ -2886,13 +2954,14 @@ var
   timestart,dd:integer;
 begin
   // Choose the type of trial
-  SelectTrialType; // This sets ICond, increments cnt, updates TRecord, and updates stim parameters
+  SelectTrialType; // This sets ICond, increments cnt and cntCond, updates TRecord, and updates stim parameters
   
   // Init the detector if necessary?
   if Behavior and ((RewardCriterion=2) OR (RewardCriterion=4)) then
   begin
     InitDetectorReward; // detector for immediate reward
     VisualStim.InstallDetector(detector);
+    if SymmetricBehavior then VisualStim.InstallDetector(detector2);
   end
   else if (NStimPerEp>1) and Auditory then
   begin
@@ -2913,7 +2982,7 @@ begin
   // detectors when possible, because they slow down the visual stimulation)
   // If there is only Visual stimulation, we need to update cnt "by hand": This 
   // line needs to be executed AFTER setVisualStim (which uses cnt)
-  if (NStimPerEp>1) and (not Auditory) then cnt:=cnt+(NStimPerEp-1);
+  if (NStimPerEp>1) and (not Auditory) then begin cnt:=cnt+(NStimPerEp-1); cntCond:=cntCond+(NStimPerEp-1); end;
 
   // Start acquisition
   display('Visualstim.animate');
@@ -2926,6 +2995,7 @@ begin
     RewardFunction;         // Check the number of licks, deliver the reward and set DoPunition
     activeReward:=TRUE;
     LickRecord.refresh;
+    if SymmetricBehavior then LickRecord2.refresh;
     CRecord.refresh;
   end;
 
@@ -2973,15 +3043,14 @@ if VisualStim.OpenDataFile then
     Initialize_AcqAndTriggs;
 
     // Set storage vectors (and precompute all condition numbers)
+    TPrebuild.modify(t_smallint,1,MaxTrialNumber);     TRecord.Xmax:=MaxTrialNumber;
+    PrebuildTrialTypes; // this fills in advance all trial types, and initialize counters
     TRecord.modify(t_smallint,1,MaxTrialNumber);     TRecord.Xmax:=MaxTrialNumber;
-    BuildTRecord;
     CRecord.modify(t_single,1,MaxTrialNumber);     CRecord.Xmax:=MaxTrialNumber;
-    CRecord.fill(0.35);
+    CRecord.fill(0.45);
     LickRecord.modify(t_smallint,1,MaxTrialNumber);  LickRecord.Xmax:=MaxTrialNumber;
+    if SymmetricBehavior then begin LickRecord2.modify(t_smallint,1,MaxTrialNumber);  LickRecord2.Xmax:=MaxTrialNumber; end;
 
-    // Initialize trial counter
-    cnt:=0; // cnt is incremented at each call to SelectTrialType
-    
     // Pre-compute sounds
     if Visual then initVisual;
     if Auditory then initSounds;
@@ -3012,6 +3081,7 @@ if VisualStim.OpenDataFile then
     DataFile0.AppendObject(TRecord);
     DataFile0.AppendObject(CRecord);
     DataFile0.AppendObject(LickRecord);
+    if SymmetricBehavior then DataFile0.AppendObject(LickRecord2);
   end;
 end;
 
@@ -3089,6 +3159,7 @@ end;
 /////////////////////////////////// Program ////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+{
 procedure sendDigital;
 begin
 NIanalog.create('Dev2');
@@ -3098,10 +3169,13 @@ NIanalog.vector.Threshold1(0);
 NIanalog.vector[NIanalog.vector.Iend]:=0;
 NIanalog.start('');
 end;
+}
 
 program 'Open program'
 Opening_procedure;
 
+{
 program 'test'
-sendDigital;
-
+RewardFunction;
+//sendDigital;
+}
