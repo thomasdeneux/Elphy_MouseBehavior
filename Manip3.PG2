@@ -10,6 +10,7 @@ var
   plot, maskPlot: TXYplot;
   bar, dumBar: Tbar; // dumBar and dumStim will be displayed anyway: they force the duration of the VisualStimulation to a certain length
   Stim, dumStim: TonOff;
+  Stim2: array [0..1] of TonOff; 
   anim: Ttrajectory; // used to create animation, e.g. the looming circle
   maskBar: array [1..2] of Tbar;
   xCenter, yCenter: real; // center (not 0 if masking)
@@ -18,6 +19,7 @@ var
   bitmap: TVSbitmap;
   bstream: TVSstream;
   circle: Tdisk;
+  circle2: array [0..1] of Tdisk;
   CRecord: Tvector;
   TRecord: Tvector;
   WaitVect: Tvector;
@@ -160,7 +162,9 @@ var
   MaskType: word; 
   VAlpha, VOri, VOri2: real; // no menu
   Vx, Vy: real;
+  Vx2, Vy2: real;
   VSize, VSize2, VSpeed, VLum: real;
+  VLum2: real;
   VLED: integer; 
   ImageListFile: string;  
   ImageIdx: integer;
@@ -315,10 +319,13 @@ begin
   VOri2:=0;
   Vx:=0;
   Vy:=0;
+  Vx2:=0;
+  Vy2:=0;
   VSize:=7;
   VSize2:=7;
   VSpeed:=400;
   VLum:=100;
+  VLum2:=100;
   VLED:=200;
   ImageListFile:='';
   ImageIdx:=0;
@@ -406,10 +413,13 @@ begin
   parlist.VOri2 := db_real;
   parlist.Vx := db_real; 
   parlist.Vy := db_real; 
+  parlist.Vx2 := db_real; 
+  parlist.Vy2 := db_real; 
   parlist.VSize := db_real; 
   parlist.VSize2 := db_real; 
   parlist.VSpeed := db_real; 
   parlist.VLum := db_real; 
+  parlist.VLum2 := db_real;
   parlist.VLED := db_integer;
   parlist.ImageListFile := db_string;
   parlist.ImageIdx := db_integer;
@@ -498,10 +508,13 @@ begin
     Addline('VOri2'+';'+Rstr(VOri2));
     Addline('Vx'+';'+Rstr(Vx));
     Addline('Vy'+';'+Rstr(Vy));
+    Addline('Vx2'+';'+Rstr(Vx2));
+    Addline('Vy2'+';'+Rstr(Vy2));
     Addline('VSize'+';'+Rstr(VSize)); 
     Addline('VSize2'+';'+Rstr(VSize2)); 
     Addline('VSpeed'+';'+Rstr(VSpeed)); 
     Addline('VLum'+';'+Rstr(VLum)); 
+    Addline('VLum2'+';'+Rstr(VLum2));
     Addline('VLED'+';'+Istr(VLED));
     AddLine('ImageListFile'+';'+ImageListFile);  
     AddLine('ImageIdx'+';'+Istr(ImageIdx));  
@@ -608,10 +621,13 @@ begin
   if spar.fieldExists('VOri2') then VOri2:=spar.VOri2;
   if spar.fieldExists('Vx') then Vx:=spar.Vx; 
   if spar.fieldExists('Vy') then Vy:=spar.Vy; 
+  if spar.fieldExists('Vx2') then Vx2:=spar.Vx2; 
+  if spar.fieldExists('Vy2') then Vy2:=spar.Vy2; 
   if spar.fieldExists('VSize') then VSize:=spar.VSize; 
   if spar.fieldExists('VSize2') then VSize2:=spar.VSize2; 
   if spar.fieldExists('VSpeed') then VSpeed:=spar.VSpeed; 
   if spar.fieldExists('VLum') then VLum:=spar.VLum; 
+  if spar.fieldExists('VLum2') then VLum2:=spar.VLum2;
   if spar.fieldExists('VLED') then VLED:=spar.VLED;
   if spar.fieldExists('ImageListFile') then ImageListFile:=spar.ImageListFile; 
   if spar.fieldExists('ImageIdx') then ImageIdx:=spar.ImageIdx;
@@ -934,7 +950,7 @@ begin
   ParameterChanged:=false;
 
   // Load the parameters
-if DoMenu then
+  if DoMenu then
   begin
     mpar2.create;
     mpar2.LoadObject(FileName);
@@ -1034,6 +1050,7 @@ begin
     addLine('none');
     addLine('Squares at 2 positions');
     addLine('Disks at 2 positions');
+    addLine('Disks at 2 positions and common disk');
   end;  
   AllListMemo.addLine('VisualProtocols');
   for i:=1 to VisualProtocols.count do AllListMemo.addLine(Istr(i)+';'+VisualProtocols.lines[i]);
@@ -1213,6 +1230,8 @@ begin
         8: begin VStimType:=8; stimtable[i].Vx:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; stimtable[i].Vy:=beta1*(1-ObjValueV)+beta2*ObjValueV; end; 
         // Circles at 2 positions
         9: begin VStimType:=5; stimtable[i].Vx:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; stimtable[i].Vy:=beta1*(1-ObjValueV)+beta2*ObjValueV; stimtable[i].VSize:=size1*(1-ObjValueV)+size2*ObjValueV;stimtable[i].VLED:=floor(led1*(1-ObjValueV)+led2*ObjValueV);end; 
+        // Circles at 2 positions with common circle
+        10: begin VStimType:=9; stimtable[i].Vx:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; stimtable[i].Vy:=beta1*(1-ObjValueV)+beta2*ObjValueV; stimtable[i].VSize:=size1*(1-ObjValueV)+size2*ObjValueV;stimtable[i].VLED:=floor(led1*(1-ObjValueV)+led2*ObjValueV);end; 
       end;
       // Audio stim
       SStimType:=SProtocolType;
@@ -1382,7 +1401,7 @@ begin
 end;
 
 // Build the GUI
-procedure  DesignInterface;
+procedure  DesignPage;
 begin
    deleteallpages('Behavior');
    Go:=0;
@@ -1398,6 +1417,13 @@ begin
    DefineWindow(0,floor(pageheight*2/4),pagewidth-400,floor(pageheight*3/4));
    DefineWindow(0,floor(pageheight*3/4),pagewidth-400,pageheight);
    DefineWindow(pagewidth-400,0,pagewidth,pageheight);
+  end;
+end;
+
+procedure FillPage;
+begin
+  with MGpage['Behavior'] do
+  begin
    addobject(1,v[1]);   vfilt.create;   addobject(1,vfilt);
    addobject(1,v[2]);
    addobject(2,v[3]); // ephys channel
@@ -1828,6 +1854,76 @@ begin
   end; 
 end;
 
+// ZP for DLP photostimulation (disks)
+procedure MakeTwoDisks; 
+var
+ i:integer;
+ Vfreq:array [0..1] of real;
+
+//quick test:
+//Vx2,Vy2,Vsize2,VLum2: real;
+
+
+begin
+  
+ //quick test:
+ //Vx2:=0;
+ //Vy2:=0;
+ //Vsize2:=6;
+ //VLum2:=2; 
+  
+  
+for i:=0 to 1 do
+begin    
+  // create each of circle2 (Tdisk object)
+  with circle2[i] do
+  begin
+    create;
+    
+    if i=0 then
+     begin
+      x:=Vx;
+      y:=Vy;
+      dx:=VSize;
+      dy:=VSize;
+      Lum:= VLum;
+     end
+    else  // 2nd disk, the disk that will be common to both stimuli
+     begin
+      x:=Vx2;
+      y:=Vy2;
+      dx:=VSize2;
+      dy:=VSize2;
+      Lum:= VLum2;
+     end;
+  end;
+
+  // create each of stim2 (TOnOff object) and assign a disk to each Tonoff
+  with stim2[i] do
+  begin
+    create;
+    StartTime:=StimDelay/1000; // secondes
+    Vfreq[i]:=Vspeed;
+    if Vfreq[i]=0 then
+    begin
+      DtON:= VisualStimDuration/1000;
+      DtOff:= 0;
+    end
+    else
+    begin
+      DtON:=1/60;           // make the shortest possible light pulse (60Hz is max frequency right now)
+      DtOff:=(1/Vfreq[i]-DtON);     // the rest of the cycle is off
+      CycleCount:=Floor(VisualStimDuration/1000*Vfreq[i]);
+    end;
+    setSyncPulse(0);
+    setVisualObject(circle2[i]);
+    
+    
+  end;
+end;
+
+end;
+
 procedure LoadImages;
 var
   valid:boolean;
@@ -1897,6 +1993,7 @@ begin
     5: MakeLuminanceCircle;
     6: MakeLoomingCircle;    // 7: corresponds to 'none'
     8: MakeOneofTwoRectangles;    //actually squares
+    9: MakeTwoDisks;
   end;
   
 // set current level of DLP LEDs:
@@ -2719,6 +2816,7 @@ begin
             1: PhysNum:=1;
             2: PhysNum:=0;
             3: PhysNum:=1;
+            4: PhysNum:=0;
           end
         else
           PhysNum:=1; // nothing to record -> record audio stim, just for fun
@@ -2801,8 +2899,8 @@ begin
     
   v3.Xmin:=0;
   v3.Xmax:=EpisodeDuration;
-  v3.Ymin:=-100/EphysGain;
-  v3.Ymax:=100/EphysGain; 
+  v3.Ymin:=-20/EphysGain;
+  v3.Ymax:=20/EphysGain; 
   
   
   v2.Xmin:=0;
@@ -2824,6 +2922,9 @@ begin
   // randomize seed for RNG
   Randomize; 
   
+  // Build the page
+  DesignPage;
+
   // Init experiment parameters and other variables
   InitSettings;
 
@@ -2842,9 +2943,9 @@ begin
   end;
   TRecord.create(t_smallint,1,1);
 
-  // Parameters interface
-  DesignInterface;
-
+  // Put vectors into graph and build menus (though menus were already built by 'InitSettings')
+  FillPage;
+  
   // Status bar
   with status do
   begin
