@@ -1481,7 +1481,7 @@ begin
     // General parameters
     201: RunTheExp;
     203: OpenValve(rewardVolume);
-    204: for i:=1 to LickNumber do begin delay(2000); display(Istr(i)); OpenValve(rewardVolume); end;
+    204: for i:=1 to LickNumber do begin delay(5000); display(Istr(i)); OpenValve(rewardVolume); end;
     205: OpenCloseValve;
     206: TestVisualStim(TRUE);
     // Visual parameters
@@ -2090,6 +2090,9 @@ begin
   VisualStim.OnStartAnimate1:=NIL;
   VisualStim.OnStartAnimate2:=NIL;
   
+  
+  
+  lcr.SetLedCurrents(255,255,55);
 
   //////////  
 s1:=4; s2:=8; s3:=12; //size of crosses
@@ -2215,7 +2218,7 @@ end;
 procedure LEDsOff;
 
 begin
- lcr.SetLedCurrents(255,255,255); 
+  lcr.SetLedCurrents(255,255,255); 
 end;
 
 {$EDIT AudioStim}
