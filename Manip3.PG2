@@ -22,6 +22,8 @@ var
   TRecord, TPrebuild: Tvector; // trial type (if DoRepeat is false, they will be identical; if DoRepeat is true, Trecord can have repetitions of elements in TPrebuild)
   WaitVect: Tvector;
   LickRecord, LickRecord2: Tvector;
+  LickCnt, LickCnt2, Licked: integer; // lick count and correct lick channel for immediate reward
+  epReport: TDBRecord; // report some values related to the last episode
   vfilt, vfilt2: Tvector;
   NIanalog, NInoclock, NIcounter: TNIinterface;
   ParamWin: Tdialog;
@@ -33,7 +35,7 @@ var
   LoadedSounds: array [1..10000] of TVector;
   MaxSoundDuration: real;
   detector, detector2: Tdetector;
-  Vdetect: Tvector;
+  Vdetect, Vdetect2: Tvector;
   level:TDBRecord; 
   RandomizationVector: TVector;
   
@@ -48,7 +50,7 @@ var
   DefaultValve: integer;
   rewardTotal: real;
   activeReward, DoPunition: boolean;
-  condRepeat: integer;
+  condRepeat, condRepeatNolick: integer;
   
   status: TstatusBar;     // use display('some text') or status.text[k]:='some text' to display some text in the status bar
 
@@ -57,6 +59,8 @@ var
   str,str1,str2: string;  // same for strings
   
   memRND: real; // memory for RandomN function
+  
+  MyTime: TDateTime; // 
 
 
 {$EDIT Tools}
@@ -142,6 +146,7 @@ var
   TriggerType: word;
   ContinuousRec, Behavior, Auditory, Visual: boolean; 
   MaxTrialNumber: integer;
+  AutoFileName: boolean;
   NStim,NStimPerEp,NRepPerBlock: integer; 
   // (timing)
   StimDelay,VisualStimDuration: integer;
@@ -151,9 +156,10 @@ var
   DetectionType,RewardCriterion: word;
   SymmetricBehavior: boolean;
   DoRepeatCondition: boolean; // repeat condition if response is not correct
-  TaskType: word; // 1 for S+, 2 for S-
+  DoubleGoNogo: boolean;
+  TaskType: word; // 1 for S+, 2 for S-, 3 for S+catch, 4 for S-catch, 5 for other catch
   LickThresholdTop, LickThresholdBottom: real;
-  LickNumber,NFreeTrials: integer; 
+  LickNumber,MaxReward,NFreeTrials,NTrialsReactivate: integer; 
   rewardVolume: real;  
   // (visual stim)
   VStimType: word; // no menu
@@ -184,6 +190,8 @@ var
   // (audio Stim)
   SProtocolType: word;
   f1, f2: real;
+  // (notes: just save some notes, no influence on the experiment)
+  ParametersNotes: string;
      
   // Handling of parameters
   DoMenu: boolean;     // Are we using the menus?
@@ -272,10 +280,12 @@ begin
   Behavior:=TRUE;
   Auditory:=TRUE;
   Visual:=TRUE;
-  MaxTrialNumber:=1000;
   NStim:=2;
   NStimPerEp:=1;
   NRepPerBlock:=4;
+  MaxTrialNumber:=1000;
+  AutoFileName:=FALSE;
+  
   // (timing)
   StimDelay:=1000;
   VisualStimDuration:=1000;
@@ -287,14 +297,16 @@ begin
   TrialInterval:=0;
   // (behavior)
   DetectionType:=2;
-  SymmetricBehavior:=False;
-  DoRepeatCondition:=False;
+  SymmetricBehavior:=False; // go-nogo
+  DoubleGoNogo:=False;
   RewardCriterion:=1;
   TaskType:=1;
   LickThresholdTop:=4000;
   LickThresholdBottom:=2500;
   LickNumber:=1;
+  MaxReward:=1000;
   NFreeTrials:=0;
+  NTrialsReactivate:=0;
   rewardVolume:=8;
   // (visual stim)  
   BackgroundLuminance:=25;
@@ -343,12 +355,14 @@ begin
   f1:=8000;
   f2:=16000;
   SoundListFile:='';
+  // (notes)
+  ParametersNotes:='(write here some notes about the parameters)';
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
 //////////////////// Copy parameters (a very repetitive section) ///////////////
 ////////////////////////////////////////////////////////////////////////////////
-
+                              
 // Parameter types
 procedure DefineParList;
 begin
@@ -359,10 +373,11 @@ begin
   parlist.Behavior := db_boolean;
   parlist.Auditory := db_boolean;
   parlist.Visual := db_boolean;
-  parlist.MaxTrialNumber := db_integer;
   parlist.NStim := db_integer; 
   parlist.NStimPerEp := db_integer; 
   parlist.NRepPerBlock := db_integer; 
+  parlist.MaxTrialNumber := db_integer;
+  parlist.AutoFileName := db_boolean;
   // (timing)
   parlist.StimDelay := db_integer;
   parlist.VisualStimDuration := db_integer;
@@ -376,12 +391,15 @@ begin
   parlist.DetectionType := db_integer;
   parlist.SymmetricBehavior := db_boolean;
   parlist.DoRepeatCondition := db_boolean;
+  parlist.DoubleGoNogo := db_boolean;
   parlist.RewardCriterion := db_integer;
   parlist.TaskType := db_integer;
   parlist.LickThresholdTop := db_real;
   parlist.LickThresholdBottom := db_real;
   parlist.LickNumber := db_integer; 
+  parlist.MaxReward := db_integer; 
   parlist.NFreeTrials := db_integer; 
+  parlist.NTrialsReactivate := db_integer;
   parlist.rewardVolume := db_real;  
   // (visual stim)
   parlist.VStimType := db_integer;
@@ -449,10 +467,11 @@ begin
     Addline('Behavior'+';'+Bstr(Behavior));
     Addline('Auditory'+';'+Bstr(Auditory));
     Addline('Visual'+';'+Bstr(Visual));
-    Addline('MaxTrialNumber'+';'+Istr(MaxTrialNumber));
     Addline('NStim'+';'+Istr(NStim)); 
     Addline('NStimPerEp'+';'+Istr(NStimPerEp)); 
     Addline('NRepPerBlock'+';'+Istr(NRepPerBlock)); 
+    Addline('MaxTrialNumber'+';'+Istr(MaxTrialNumber));
+    Addline('AutoFileName'+';'+Bstr(AutoFileName));
     // (timing)
     Addline('StimDelay'+';'+Istr(StimDelay));
     Addline('VisualStimDuration'+';'+Istr(VisualStimDuration));
@@ -466,12 +485,15 @@ begin
     Addline('DetectionType'+';'+Istr(DetectionType));
     Addline('SymmetricBehavior'+';'+Bstr(SymmetricBehavior));
     Addline('DoRepeatCondition'+';'+Bstr(DoRepeatCondition));
+    Addline('DoubleGoNogo'+';'+Bstr(DoubleGoNogo));
     Addline('RewardCriterion'+';'+Istr(RewardCriterion));
     Addline('TaskType'+';'+Istr(TaskType));
     Addline('LickThresholdTop'+';'+Rstr(LickThresholdTop));
     Addline('LickThresholdBottom'+';'+Rstr(LickThresholdBottom));
     Addline('LickNumber'+';'+Istr(LickNumber)); 
+    Addline('MaxReward'+';'+Istr(MaxReward)); 
     Addline('NFreeTrials'+';'+Istr(NFreeTrials)); 
+    Addline('NTrialsReactivate'+';'+Istr(NTrialsReactivate)); 
     Addline('rewardVolume'+';'+Rstr(rewardVolume));  
     // (visual stim)
     Addline('VStimType'+';'+Istr(VStimType));
@@ -563,10 +585,11 @@ begin
   if spar.fieldExists('Behavior') then Behavior:=spar.Behavior;
   if spar.fieldExists('Auditory') then Auditory:=spar.Auditory;
   if spar.fieldExists('Visual') then Visual:=spar.Visual;
-  if spar.fieldExists('MaxTrialNumber') then MaxTrialNumber:=spar.MaxTrialNumber;
   if spar.fieldExists('NStim') then NStim:=spar.NStim; 
   if spar.fieldExists('NStimPerEp') then NStimPerEp:=spar.NStimPerEp; 
   if spar.fieldExists('NRepPerBlock') then NRepPerBlock:=spar.NRepPerBlock; 
+  if spar.fieldExists('MaxTrialNumber') then MaxTrialNumber:=spar.MaxTrialNumber;
+  if spar.fieldExists('AutoFileName') then MaxTrialNumber:=spar.AutoFileName;
   // (timing)
   if spar.fieldExists('StimDelay') then StimDelay:=spar.StimDelay;
   if spar.fieldExists('VisualStimDuration') then VisualStimDuration:=spar.VisualStimDuration;
@@ -580,12 +603,15 @@ begin
   if spar.fieldExists('DetectionType') then DetectionType:=spar.DetectionType;
   if spar.fieldExists('SymmetricBehavior') then SymmetricBehavior:=spar.SymmetricBehavior;
   if spar.fieldExists('DoRepeatCondition') then DoRepeatCondition:=spar.DoRepeatCondition;
+  if spar.fieldExists('DoubleGoNogo') then DoubleGoNogo:=spar.DoubleGoNogo;
   if spar.fieldExists('RewardCriterion') then RewardCriterion:=spar.RewardCriterion;
   if spar.fieldExists('TaskType') then TaskType:=spar.TaskType;
   if spar.fieldExists('LickThresholdTop') then LickThresholdTop:=spar.LickThresholdTop;
   if spar.fieldExists('LickThresholdBottom') then LickThresholdBottom:=spar.LickThresholdBottom;
   if spar.fieldExists('LickNumber') then LickNumber:=spar.LickNumber; 
+  if spar.fieldExists('MaxReward') then MaxReward:=spar.MaxReward; 
   if spar.fieldExists('NFreeTrials') then NFreeTrials:=spar.NFreeTrials; 
+  if spar.fieldExists('NTrialsReactivate') then NTrialsReactivate:=spar.NTrialsReactivate; 
   if spar.fieldExists('rewardVolume') then rewardVolume:=spar.rewardVolume;  
   // (visual stim)
   if spar.fieldExists('VStimType') then VStimType:=spar.VStimType;
@@ -693,10 +719,11 @@ begin
   mpar2.Behavior:=Behavior;
   mpar2.Auditory:=Auditory;
   mpar2.Visual:=Visual;
-  mpar2.MaxTrialNumber:=MaxTrialNumber;
   mpar2.NStim:=NStim;
   mpar2.NStimPerEp:=NStimPerEp;
   mpar2.NRepPerBlock:=NRepPerBlock;
+  mpar2.MaxTrialNumber:=MaxTrialNumber;
+  mpar2.AutoFileName:=AutoFileName;
   // (timing)
   mpar2.StimDelay:=StimDelay;
   mpar2.VisualStimDuration:=VisualStimDuration;
@@ -710,11 +737,14 @@ begin
   mpar2.DetectionType:=DetectionType;
   mpar2.SymmetricBehavior:=SymmetricBehavior;
   mpar2.DoRepeatCondition:=DoRepeatCondition;
+  mpar2.DoubleGoNogo:=DoubleGoNogo;
   mpar2.RewardCriterion:=RewardCriterion;
   mpar2.LickThresholdTop:=LickThresholdTop;
   mpar2.LickThresholdBottom:=LickThresholdBottom;
   mpar2.LickNumber:=LickNumber;
+  mpar2.MaxReward:=MaxReward;
   mpar2.NFreeTrials:=NFreeTrials;
+  mpar2.NTrialsReactivate:=NTrialsReactivate;
   mpar2.rewardVolume:=rewardVolume;
   // (visual stim)  
   mpar2.BackgroundLuminance:=BackgroundLuminance;
@@ -747,6 +777,8 @@ begin
   mpar2.f2:=f2;
   mpar2.SoundListFile:=SoundListFile;
   mpar2.Equalization:=Equalization;
+  // (notes)
+  mpar2.ParametersNotes:=ParametersNotes;
 end;
 
 procedure TDBrecord2MenuPar;
@@ -759,10 +791,11 @@ begin
   if mpar2.fieldExists('Behavior') then Behavior:=mpar2.Behavior else Behavior:=TRUE;
   Auditory:=mpar2.Auditory;
   Visual:=mpar2.Visual;
-  MaxTrialNumber:=mpar2.MaxTrialNumber;
   if mpar2.fieldExists('NStim') then NStim:=mpar2.NStim else NStim:=mpar2.NIntermediateStim+2;
   if mpar2.fieldExists('NStimPerEp') then NStimPerEp:=mpar2.NStimPerEp else NStimPerEp:=1;
   if mpar2.fieldExists('NRepPerBlock') then NRepPerBlock:=mpar2.NRepPerBlock else NRepPerBlock:=4;
+  MaxTrialNumber:=mpar2.MaxTrialNumber;
+  if mpar2.fieldExists('AutoFileName') then AutoFileName:=mpar2.AutoFileName else AutoFileName:=FALSE;
   // (timing)
   StimDelay:=mpar2.StimDelay;
   VisualStimDuration:=mpar2.VisualStimDuration;
@@ -776,11 +809,14 @@ begin
   DetectionType:=mpar2.DetectionType;
   if mpar2.fieldExists('SymmetricBehavior') then SymmetricBehavior:=mpar2.SymmetricBehavior else SymmetricBehavior:=False;
   if mpar2.fieldExists('DoRepeatCondition') then DoRepeatCondition:=mpar2.DoRepeatCondition else DoRepeatCondition:=False;
+  if mpar2.fieldExists('DoubleGoNogo') then DoubleGoNogo:=mpar2.DoubleGoNogo else DoubleGoNogo:=False;
   if mpar2.fieldExists('RewardCriterion') then RewardCriterion:=mpar2.RewardCriterion else RewardCriterion:=1;
   LickThresholdTop:=mpar2.LickThresholdTop;
   LickThresholdBottom:=mpar2.LickThresholdBottom;
   LickNumber:=mpar2.LickNumber;
+  if mpar2.fieldExists('MaxReward') then MaxReward:=mpar2.MaxReward else MaxReward:=1000;
   NFreeTrials:=mpar2.NFreeTrials;
+  if mpar2.fieldExists('NTrialsReactivate') then NTrialsReactivate:=mpar2.NTrialsReactivate else NTrialsReactivate:=0;
   if mpar2.fieldExists('rewardVolume') then rewardVolume:=mpar2.rewardVolume else if rewardConversion>0 then rewardVolume:=mpar2.ValveOpenTime/rewardConversion else rewardVolume:=0;
   // (visual stim)  
   if mpar2.fieldExists('BackgroundLuminance') then BackgroundLuminance:=mpar2.BackgroundLuminance else BackgroundLuminance:=25;
@@ -814,6 +850,8 @@ begin
   f1:=mpar2.f1; 
   f2:=mpar2.f2;
   if mpar2.fieldExists('SoundListFile') then SoundListFile:=mpar2.SoundListFile else SoundListFile:='';
+  // (notes)
+  if mpar2.fieldExists('ParametersNotes') then ParametersNotes:=mpar2.ParametersNotes else ParametersNotes:='(write here some notes about the parameters)';
 end;
 
 
@@ -895,7 +933,7 @@ begin
   end;
 
   // Memorize file name (folder, base and full file)
-  SplitFileName(FileName,str1,str2,ext);
+  SplitFileName(Filename,str1,str2,ext);
   if ext='.param' then
     DoMenu:=true
   else if ext='.csv' then
@@ -1244,7 +1282,7 @@ begin
     create;
     dividePanel('1',3,FALSE);
     if DoMenu then
-      splitPanel('1.2','General|Timing|Behavior|Visual Stim|Audio Stim');
+      splitPanel('1.2','General|Timing|Behavior|Visual Stim|Audio Stim|Notes');
 
     // Files menu
     selectPanel('1.1');
@@ -1273,6 +1311,8 @@ begin
       getInteger('# Repetition per randomized block',NRepPerBlock,5);
       getInteger('Max. trial number',MaxTrialNumber,5);
       setText(''); // add a separation line
+      getBoolean('Automatic data file name',AutoFileName);
+      setText(''); // add a separation line
       getBoolean('Behavior', Behavior);
       getBoolean('Visual', Visual);
       getBoolean('Auditory', Auditory);
@@ -1293,12 +1333,15 @@ begin
       getstringList1('Detection Type',DetectionList,DetectionType);
       getBoolean('Symmetric Behavior',SymmetricBehavior);
       getBoolean('Repeat condition until correct',DoRepeatCondition);
+      getBoolean('Double go-no go',DoubleGoNogo);
       getstringList1('Reward  Criterion',RewardCriterionList,RewardCriterion);
       getInteger('Minimal lick number',LickNumber,5);
+      getInteger('Maximal reward',MaxReward,5);
       getReal('Sensor top threshold (mV)',LickThresholdTop,5,1);
       getReal('Sensor bottom threshold (mV)',LickThresholdBottom,5,1);
       getReal('Reward volume (ul)',rewardVolume,5,1);
       getInteger('# free training trials',NFreeTrials,5);
+      getInteger('reactivate after # no-lick trials',NTrialsReactivate,5);
     
       // Visual parameters
       selectPanel('1.2.4');
@@ -1332,6 +1375,10 @@ begin
       getCommandA('Load sounds', Go,401);
       getCommandA('Test sounds', Go,402);
       getBoolean('Equalization',Equalization);
+    
+      // Notes
+      selectPanel('1.2.6');
+      getMemo('',ParametersNotes,30,15,0);
     end else
     begin
       setText(''); // add a separation line
@@ -1829,7 +1876,7 @@ begin
     if valid then
     begin
       display('loading images');
-      SplitFileName(ImageListFile,VDirName,str1,str2);
+      VDirName:=extractFilePath(ImageListFile);
       fid:=1;
       OpenText(fid,ImageListFile,TRUE);
       with ImageList do
@@ -2075,7 +2122,7 @@ begin
   valid := FileExists(SoundListFile);
   if valid then
   begin
-    SplitFileName(SoundListFile,SDirName,str1,str2);
+    SDirName:=extractFilePath(SoundListFile);
     fid:=1;
     OpenText(fid,SoundListFile,TRUE);
     with SoundList do
@@ -2327,7 +2374,7 @@ begin
     start('');
     rewardTotal:=rewardTotal+volume;
     ParamWin.update;
-    delay(Floor(volume*rewardConversion)+100);
+    //delay(Floor(volume*rewardConversion)+100);
     //status.text[4]:='reward '+Istr(side);
     //delay(200);
     //status.text[4]:='';
@@ -2361,6 +2408,7 @@ var
   det: Tdetect; // We use a Tdetect object for the lick detection
   w,w2: integer;
   rewardChannel: integer;
+  isFreeTrial, noLick: boolean;
 begin
   Case DetectionType of
     // Head-fixed touch
@@ -2455,43 +2503,94 @@ begin
     
   end;
 
-  // Give the reward if correct answer
+  // Correct answer?
   rewardChannel:=0;
-  if SymmetricBehavior then
+  if RewardCriterion=2 then // immediate reward?
   begin
-    if ((TaskType=1) OR (TaskType=3)) AND ((w>=w2+LickNumber) OR (cnt<=NFreeTrials)) then rewardChannel:=1
-    else if ((TaskType=2) OR (TaskType=4)) AND ((w2>=w+LickNumber) OR (cnt<=NFreeTrials)) then rewardChannel:=2;
+    if ((TaskType=1) OR (TaskType=3)) AND (Licked=1) then rewardChannel:=1
+    else if ((TaskType=2) OR (TaskType=4)) AND (Licked=2) then rewardChannel:=2;
+  end
+  else if SymmetricBehavior and DoubleGoNogo then
+  begin
+    if ((TaskType=1) OR (TaskType=3)) AND (w>=LickNumber) then rewardChannel:=1
+    else if ((TaskType=2) OR (TaskType=4)) AND (w2>=LickNumber) then rewardChannel:=2;
+  end
+  else if SymmetricBehavior then
+  begin
+    if ((TaskType=1) OR (TaskType=3)) AND (w>=w2+LickNumber) then rewardChannel:=1
+    else if ((TaskType=2) OR (TaskType=4)) AND (w2>=w+LickNumber) then rewardChannel:=2;
+    if (LickNumber=0) AND (w+w2=0) then rewardChannel:=0; // special behavior for LickNumer=0: reward if at least one correct lick, and no more incorrect licks than correct licks 
   end
   else
-    if ((TaskType=1) OR (TaskType=3)) AND ((w>= LickNumber) OR (cnt<=NFreeTrials)) then rewardChannel:=1;
-  if (rewardChannel>0) AND activeReward then OpenValve(Floor(rewardVolume),rewardChannel);
-     
+    if ((TaskType=1) OR (TaskType=3)) AND (w>= LickNumber) then rewardChannel:=1;
+    
+  // Give the reward if correct answer or free trial or reactivate trial
+  noLick := ((RewardCriterion=2) AND activeReward) OR ((RewardCriterion=1) AND (w+w2=0));
+  isFreeTrial := (cnt<=NFreeTrials) OR ((NTrialsReactivate>0) AND noLick AND (CondRepeatNoLick>=NTrialsReactivate));
+  if (rewardChannel>0) AND activeReward then 
+    OpenValve(Floor(rewardVolume),rewardChannel)
+  else if isFreeTrial AND activeReward then
+  begin      
+    if (TaskType=1) OR (TaskType=3) then 
+      OpenValve(Floor(rewardVolume),1)    
+    else if SymmetricBehavior AND ((TaskType=2) OR (TaskType=4)) then
+      OpenValve(Floor(rewardVolume),2); 
+    CondRepeatNoLick:=0;
+  end;  
+    
   // Decide whether a punition should be given (in the form of an additional delay, inside the DoEpisode function)
   DoPunition := (not SymmetricBehavior) AND ((TaskType=2) OR (TaskType=4)) AND (w>=LickNumber);
   
   // Record the number of licks
   if SymmetricBehavior then
-    status.text[5]:=Istr(w)+'/'+Istr(w2)+' lick(s)'
+    status.text[5]:=Istr(w)+'['+Istr(LickCnt)+']/'+Istr(w2)+'['+Istr(LickCnt2)+'] lick(s)'
   else
     status.text[5]:=Istr(w)+' lick(s)';
   LickRecord[cnt]:=w;
   if SymmetricBehavior then LickRecord2[cnt]:=w2;
   
-  // Record whether the trial was correct
+  // Record whether the trial was correct (more details than just "correct or not")
+  // 0.5 if no choice or catch trial, 1 if correct choice, 0 if incorrect choice  
   status.text[3]:=''; 
   case TaskType of
     1: if SymmetricBehavior then
-         CRecord[cnt] := Ord(w>w2)*0.5 + Ord(w>=w2)*0.5
+       begin 
+         if RewardCriterion=2 then // immediate 
+           CRecord[cnt] := Ord(Licked=1)*0.5 + Ord(licked<>2)*0.5 
+         else
+           CRecord[cnt] := Ord(w>w2)*0.5 + Ord(w>=w2)*0.5;
+       end
        else
          CRecord[cnt] := Ord(rewardChannel>0);
     2: if SymmetricBehavior then
-         CRecord[cnt] := Ord(w2>w)*0.5 + Ord(w2>=w)*0.5
+       begin 
+         if RewardCriterion=2 then 
+           CRecord[cnt] := Ord(Licked=2)*0.5 + Ord(licked<>1)*0.5  
+         else
+           CRecord[cnt] := Ord(w2>w)*0.5 + Ord(w2>=w)*0.5;
+       end
        else
-         CRecord[cnt] := Ord(rewardChannel<=0);
+         CRecord[cnt] := Ord(rewardChannel=0);
     3..5: begin status.text[3]:='catched trial'; CRecord[cnt] := 0.5; end;
   end;
-  if DoRepeatCondition AND (CondRepeat>0) then Crecord[cnt] := 0.5 + (Crecord[cnt]-0.5)/5; // if we are repeating a previous repetition, mark correctness more lightly
-  if DoRepeatCondition AND (CRecord[cnt]<=0.5) then inc(CondRepeat) else CondRepeat:=0; //if not correct in DoRepeatCondition mode, set for repeating the same condition at next trial
+  if CondRepeat=1 then Crecord[cnt] := 0.5 + (Crecord[cnt]-0.5)*4/5; // if we are repeating a previous repetition, mark correctness more lightly
+  if CondRepeat=2 then Crecord[cnt] := 0.5 + (Crecord[cnt]-0.5)/5;   // if we are repeating a previous repetition and previous incorrect response was made, mark correctness very lightly
+  
+  // Repeat condition in next trial if trial was not correct?
+  if DoRepeatCondition AND (CRecord[cnt]<=0.5) then
+    begin
+      if (CondRepeat<=1) AND (CRecord[cnt]=0.5) then
+        CondRepeat:=1  // repeat condition, no incorrect response was made yet
+      else
+        CondRepeat:=2; // incorrect response was made
+      if noLick then inc(CondRepeatNoLick);
+    end
+  else 
+    begin
+      CondRepeat:=0; //if not correct in DoRepeatCondition mode, set for repeating the same condition at next trial
+      CondRepeatNoLick:=0;
+    end;
+  status.text[6] := 'repeat '+Istr(CondRepeat)+'repeat nolick '+Istr(CondRepeatNoLick);
 end;
  
 procedure ImmediateRewardFunction(n:integer);
@@ -2501,11 +2600,17 @@ begin
     OpenValve(rewardVolume,1)
   else
     // happens only in Go-NoGo behavior; reward if S+ and correct response
-    if ((TaskType=1) OR (TaskType=3)) AND (Vdetect[Vdetect.Iend]>StimDelay+LickCountingDelay) AND (activeReward) then
+    if (Vdetect[Vdetect.Iend]>StimDelay+LickCountingDelay) then
     begin
-      OpenValve(rewardVolume,1);
-      activeReward:=FALSE;
+      inc(LickCnt);
+      if activeReward AND (LickCnt>=LickNumber) then
+      begin
+        if Licked=0 then Licked:=1; // remember which channel was first licked
+        if ((TaskType=1) OR (TaskType=3)) then begin OpenValve(rewardVolume,1); activeReward:=FALSE; end;
+        if not DoubleGoNogo then activeReward:=FALSE;
+      end;
     end;
+  //status.text[6]:=('A'+Istr(LickCnt)+'/'+Istr(LickCnt2));
 end;
 
 procedure ImmediateRewardFunction2(n:integer);
@@ -2515,11 +2620,17 @@ begin
     OpenValve(rewardVolume,2)
   else
     // happens only in Go-NoGo behavior; reward if S+ and correct response
-    if ((TaskType=2) OR (TaskType=4)) AND (Vdetect[Vdetect.Iend]>StimDelay+LickCountingDelay) AND (activeReward) then
+    if (Vdetect2[Vdetect2.Iend]>StimDelay+LickCountingDelay) then
     begin
-      OpenValve(rewardVolume,2);
-      activeReward:=FALSE;
+      inc(LickCnt2);
+      if activeReward AND (LickCnt2>=LickNumber) then
+      begin
+        if Licked=0 then Licked:=2; // remember which channel was first licked
+        if ((TaskType=2) OR (TaskType=4)) then begin OpenValve(rewardVolume,2); activeReward:=FALSE; end;
+        if not DoubleGoNogo then activeReward:=FALSE;
+      end;
     end;
+  //status.text[7]:=('B'+Istr(LickCnt)+'/'+Istr(LickCnt2));
 end;
 
 
@@ -2555,6 +2666,7 @@ PFI1 trigger for audio
 procedure InitDetectorReward;
 begin
   Vdetect.create;
+  Vdetect2.create;
   activeReward:=TRUE;
   with detector do
   begin
@@ -2565,6 +2677,8 @@ begin
     initCrossings(v1,Vdetect, true,false, LickThresholdTop+Vbase,LickThresholdBottom+Vbase, 100, Vbase,false);
     AddEvent(ImmediateRewardFunction,0);
   end;
+  LickCnt:=0;
+  Licked:=0;
   if SymmetricBehavior then
   begin
     with detector2 do
@@ -2573,9 +2687,10 @@ begin
       // detector events are initiated by threshold crossing:
       // arguments 3 and 4 tell whether up-crossings and down-crossings generate an event
       status.text[4]:='Vbase='+Rstr(Vbase,5,2);
-      initCrossings(v2,Vdetect, true,false, LickThresholdTop+Vbase,LickThresholdBottom+Vbase, 100, Vbase,false);
+      initCrossings(v2,Vdetect2, true,false, LickThresholdTop+Vbase,LickThresholdBottom+Vbase, 100, Vbase,false);
       AddEvent(ImmediateRewardFunction2,0);
     end; 
+    LickCnt2:=0;
   end;
 end;
 
@@ -2652,10 +2767,12 @@ end;
 
 procedure WaitForNoLick;
 var
-  LickV,LickThresholdUser,thresh,del,RefreshTime:real;
+  LickV,LickThresholdUser,thresh,del,RefreshTime,tbar:real;
   t0:longint;
   NREFRE,NC0,tremain:integer;
+  //lastlick:integer;
   Address,Address2:string;
+  waitbar:string[20];
 begin
   display('wait for no lick');
   Address:=Dev+'/AI0';
@@ -2670,20 +2787,30 @@ begin
   status.text[4]:='Vbase=' + Rstr(Vbase,5,2);
   del:=10;
   t0:=TimeGetTime;
+  tbar:=TimeGetTime;
   NC0:=0;
   NREFRE:=floor(1000/del);
   WaitVect.create(5,1,NREFRE);  
+  //lastlick:=0;
+  waitbar:='00000000000000000000'; // ridiculous way to initialize a 20-character string!!
   repeat
     delay(floor(del));
     tremain:=RefractoryTime-(TimeGetTime-t0);
-    display('wait for no lick: '+Rstr(tremain/1000,5,1));
+    while (TimeGetTime-tbar)>(RefractoryTime/20) do
+    begin
+      tbar := tbar+(RefractoryTime/20);
+      //for i:=0 to 18 do waitbar[20-i]:=waitbar[19-i];
+      for i:=1 to 19 do waitbar[i]:=waitbar[i+1];
+      waitbar[20]:='*';
+    end;
+    //display('wait for no lick: ['+Istr(lastlick)+'] '+Rstr(tremain/1000,5,1));
     NInoclock.Ain(Address,1,LickV);
     NC0:=NC0+1; WaitVect[NC0]:=LickV;
-    if ((DetectionType=2) AND (LickV<thresh)) OR ((DetectionType=4) AND (LickV>thresh)) then t0:=TimeGetTime;
+    if ((DetectionType=2) AND (LickV<thresh)) OR ((DetectionType=4) AND (LickV>thresh)) then begin t0:=TimeGetTime; waitbar[20]:='1'; end;
     if SymmetricBehavior then
     begin
       NInoclock.Ain(Address2,1,LickV);
-      if ((DetectionType=2) AND (LickV<thresh)) OR ((DetectionType=4) AND (LickV>thresh)) then t0:=TimeGetTime;
+      if ((DetectionType=2) AND (LickV<thresh)) OR ((DetectionType=4) AND (LickV>thresh)) then begin t0:=TimeGetTime; waitbar[20]:='2'; end;
     end;
     if NC0>=NREFRE then
       begin
@@ -2692,6 +2819,7 @@ begin
           thresh:=(Vbase+LickThresholdUser)/1000;
           NC0:=0;
       end;
+    display('wait for no lick:'+waitbar);
     visualStim.TestStopStim;
   until (tremain<=0) OR Visualstim.StopStim;
   display('Trial');
@@ -2931,6 +3059,7 @@ begin
   cnt:=0; // reinit trial counter
   cntCond:=0; // reinit condition counters
   CondRepeat:=0; // first trial is not a repeat
+  CondRepeatNoLick:=0; // first trial is not a repeat 
 end;
 
 // Select trial type, update stim parameters, fill-in TRecord
@@ -2948,6 +3077,22 @@ begin
   status.text[2] := 'Stim '+Istr(cnt)+' -> '+Istr(ICond);
 end;
 
+procedure SaveEpReport;
+begin
+  // save parameters after first trial rather than at the end of the experiment:
+  // that way they will be in the file even if a crash occurs
+  if cnt=1 then SaveParametersDatafile;
+  // save some variables for the current trial
+  epReport.create;
+  epReport.cnt := cnt;
+  epReport.iCond := ICond;
+  epReport.taskType := TaskType;
+  epReport.rewardTotal := rewardTotal;
+  epReport.correct := CRecord[cnt];
+  epReport.condRepeat := condRepeat; // be careful, this says if NEXT trial will repeat the condition of this trial
+  DataFile0.appendObject(epReport);
+end;
+
 // Procedure defining what to do in each episode
 procedure DoEpisode;
 var
@@ -2957,6 +3102,7 @@ begin
   SelectTrialType; // This sets ICond, increments cnt and cntCond, updates TRecord, and updates stim parameters
   
   // Init the detector if necessary?
+  VisualStim.RemoveDetectors;
   if Behavior and ((RewardCriterion=2) OR (RewardCriterion=4)) then
   begin
     InitDetectorReward; // detector for immediate reward
@@ -3002,24 +3148,26 @@ begin
   // Add a delay before the next episode
   dd := TrialInterval;               // Minimal duration of trial
   dd := (timestart+dd)-timeGetTime;  // Remaining time to wait
-  if dd>0 then
+  if (dd>0) AND (not Visualstim.StopStim) then
   begin
     display('wait for some delay');
     delay(dd);
   end;
-  if Behavior AND DoPunition AND (PunitionDelay>0) then
+  if Behavior AND DoPunition AND (PunitionDelay>0) AND (not Visualstim.StopStim) then
   begin
     display('punition delay');    // punishment for false positive
     delay(PunitionDelay);
     dd := dd+PunitionDelay;
   end;
-  if RandomDelay>0 then
+  if (RandomDelay>0) AND (not Visualstim.StopStim) then
   begin
     display('random delay');
     delay(Floor(Random*RandomDelay));
   end;
   display('');
   
+  // Save some trial-specific information
+  SaveEpReport;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3047,7 +3195,7 @@ if VisualStim.OpenDataFile then
     PrebuildTrialTypes; // this fills in advance all trial types, and initialize counters
     TRecord.modify(t_smallint,1,MaxTrialNumber);     TRecord.Xmax:=MaxTrialNumber;
     CRecord.modify(t_single,1,MaxTrialNumber);     CRecord.Xmax:=MaxTrialNumber;
-    CRecord.fill(0.45);
+    CRecord.fill(0.49);
     LickRecord.modify(t_smallint,1,MaxTrialNumber);  LickRecord.Xmax:=MaxTrialNumber;
     if SymmetricBehavior then begin LickRecord2.modify(t_smallint,1,MaxTrialNumber);  LickRecord2.Xmax:=MaxTrialNumber; end;
 
@@ -3073,11 +3221,10 @@ if VisualStim.OpenDataFile then
     // Episodes loop
     repeat
       DoEpisode;                        // Launch episode
-    until (cnt=MaxTrialNumber) or Visualstim.StopStim;  // Note that cnt is incremented in SelectTrialType function
+    until (cnt=MaxTrialNumber) or (rewardTotal>=MaxReward) or Visualstim.StopStim;  // Note that cnt is incremented in SelectTrialType function
     VisualStim.StopStim:=FALSE;
 
-    // Save parameters and computed vectors
-    SaveParametersDatafile;
+    // Save computed vectors
     DataFile0.AppendObject(TRecord);
     DataFile0.AppendObject(CRecord);
     DataFile0.AppendObject(LickRecord);
@@ -3091,6 +3238,7 @@ var
   MatName: string;
 
 EndProcess
+status.text[7]:='the end';
 if DetectionType=1 then
 begin
    detector.update(v1.Iend); // this also applies for episodes recording
@@ -3136,10 +3284,29 @@ begin
   // done in 'EndProcess' above
 end;
 
+// Automatic data file name
+function BuildAutoFileName:string;
+var
+  Year,Month,Day,Hour,Minute,Second,MilliSecond:smallint;
+  Dir,DateStr,ParStr:string;
+begin
+  Dir:=DataPath;
+  while not DirectoryExists(Dir) do 
+  begin
+    Dir:=extractFilePath(Dir);
+    Delete(Dir,Length(Dir),1);
+  end;
+  DecodeDateTime(Now,Year,Month,Day,Hour,Minute,Second,MilliSecond);
+  DateStr := Istr(Year mod 100,2)+'-'+Istr(Month,2)+'-'+Istr(Day,2);
+  ReplaceString(' ','0',DateStr);
+  ParStr := UpperCase(ParameterFileBase);
+  BuildAutoFileName:=Dir+'\'+DateStr+'_'+ParStr+'1.DAT';
+end;
+
 // General experiment procedure
 procedure RunTheExp;
 begin
-  // Check current settings
+  // Check current settings  
   if not CheckCurrentSettings then break;
   // Save menu parameters to default
   if DoMenu then SaveDefaultMenuParameters;
@@ -3147,9 +3314,11 @@ begin
   InitRewardCount;
   // Erase status information
   for i:=1 to 7 do status.text[i]:='';
+  // Build automatic data file name
+  if AutoFileName then Acquisition.GenericFileName := BuildAutoFileName;
   // Call the procedure for Episodes or Continuous recording
   if ContinuousRec then RunContinuous else RunEpisodes;
-  // Update the generic file name
+  // Update the generic data file name
   Acquisition.GenericFileName := DataPath+DataName+'.DAT';
 end;
 
