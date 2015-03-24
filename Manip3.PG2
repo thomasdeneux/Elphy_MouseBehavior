@@ -49,6 +49,7 @@ var
   ValveOpen: boolean;
   rewardTotal: real;
   activeReward: boolean;
+  CountLicks: integer;
   
   status: TstatusBar;     // use display('some text') or status.text[k]:='some text' to display some text in the status bar
 
@@ -2598,16 +2599,27 @@ end;
 
 
 procedure ImmediateRewardFunction(n:integer);
+
+
+
 begin
   if ContinuousRec then
     // continuous run with immediate rewards
     OpenValve(rewardVolume)
   else
+  
+    // count licks into CountLicks:
+    if (TaskType=1) AND (Vdetect[Vdetect.Iend]>StimDelay+LickCountingDelay) AND (activeReward) AND (CountLicks<LickNumber) then
+    begin
+    CountLicks:=CountLicks+1;
+    end;
+     
     // reward if S+ and correct response
-    if (TaskType=1) AND (Vdetect[Vdetect.Iend]>StimDelay+LickCountingDelay) AND (activeReward) then
+    if (TaskType=1) AND (Vdetect[Vdetect.Iend]>StimDelay+LickCountingDelay) AND (activeReward) AND (CountLicks=LickNumber) then
     begin
       OpenValve(rewardVolume);
       activeReward:=FALSE;
+      CountLicks:=0; //reset lick counter
     end;
 end;
 
@@ -2615,6 +2627,7 @@ procedure InitDetectorReward;
 begin
   Vdetect.create;
   activeReward:=TRUE;
+  CountLicks:=0;
   with detector do
   begin
     create;
