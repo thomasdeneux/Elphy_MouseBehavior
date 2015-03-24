@@ -2791,6 +2791,7 @@ begin
     // EphysPeriod is the period chosen for acquiring electrophysiology data (v3). Other channels are adjusted with DownSamplingFactor such
     // that their period is 1ms.
     PeriodPerChannel:=EphysPeriod; // unit: ms
+    //PeriodPerChannel:=0.01; // unit: ms
     // Erase all displays
     emptyVisualStim;
     // Handle triggers
