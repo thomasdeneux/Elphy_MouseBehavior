@@ -2542,6 +2542,8 @@ begin
         Xend:=StimDelay+VisualStimDuration+RewardDelay;
         mode:= sm_max;
         height:= LickThresholdTop;
+        //status.text[1]:=Rstr(Xstart,1,4)+'-'+Rstr(Xend,1,4)+'-'+Rstr(height,1,4);
+        //status.text[6]:=Istr(vfilt.Iend);
         execute;
       end;
       w:=det.count;
