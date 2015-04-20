@@ -157,6 +157,7 @@ var
   SymmetricBehavior: boolean;
   DoRepeatCondition: boolean; // repeat condition if response is not correct
   DoubleGoNogo: boolean;
+  DoRandomize: boolean;
   TaskType: word; // 1 for S+, 2 for S-, 3 for S+catch, 4 for S-catch, 5 for other catch
   LickThresholdTop, LickThresholdBottom: real;
   LickNumber,MaxReward,NFreeTrials,NTrialsReactivate: integer; 
@@ -169,6 +170,7 @@ var
   VAlpha, VOri, VOri2: real; // no menu
   Vx, Vy: real;
   VSize, VSize2, VSpeed, VLum: real; 
+  NFlash: integer;
   ImageListFile: string;  
   ImageIdx: integer;
   
@@ -299,6 +301,7 @@ begin
   DetectionType:=2;
   SymmetricBehavior:=False; // go-nogo
   DoubleGoNogo:=False;
+  DoRandomize:=True;
   RewardCriterion:=1;
   TaskType:=1;
   LickThresholdTop:=4000;
@@ -325,6 +328,7 @@ begin
   VSize2:=7;
   VSpeed:=400;
   VLum:=100;
+  NFlash:=1;
   ImageListFile:='';
   ImageIdx:=0;
   // (audio stim)
@@ -392,6 +396,7 @@ begin
   parlist.SymmetricBehavior := db_boolean;
   parlist.DoRepeatCondition := db_boolean;
   parlist.DoubleGoNogo := db_boolean;
+  parlist.DoRandomize := db_boolean;
   parlist.RewardCriterion := db_integer;
   parlist.TaskType := db_integer;
   parlist.LickThresholdTop := db_real;
@@ -416,6 +421,7 @@ begin
   parlist.VSize2 := db_real; 
   parlist.VSpeed := db_real; 
   parlist.VLum := db_real; 
+  parlist.NFlash := db_integer; 
   parlist.ImageListFile := db_string;
   parlist.ImageIdx := db_integer;
   // (audio stim)
@@ -486,41 +492,43 @@ begin
     Addline('SymmetricBehavior'+';'+Bstr(SymmetricBehavior));
     Addline('DoRepeatCondition'+';'+Bstr(DoRepeatCondition));
     Addline('DoubleGoNogo'+';'+Bstr(DoubleGoNogo));
+    Addline('DoRandomize'+';'+Bstr(DoRandomize));
     Addline('RewardCriterion'+';'+Istr(RewardCriterion));
     Addline('TaskType'+';'+Istr(TaskType));
-    Addline('LickThresholdTop'+';'+Rstr(LickThresholdTop));
-    Addline('LickThresholdBottom'+';'+Rstr(LickThresholdBottom));
+    Addline('LickThresholdTop'+';'+Rstr(LickThresholdTop,1,5));
+    Addline('LickThresholdBottom'+';'+Rstr(LickThresholdBottom,1,5));
     Addline('LickNumber'+';'+Istr(LickNumber)); 
     Addline('MaxReward'+';'+Istr(MaxReward)); 
     Addline('NFreeTrials'+';'+Istr(NFreeTrials)); 
     Addline('NTrialsReactivate'+';'+Istr(NTrialsReactivate)); 
-    Addline('rewardVolume'+';'+Rstr(rewardVolume));  
+    Addline('rewardVolume'+';'+Rstr(rewardVolume,1,5));  
     // (visual stim)
     Addline('VStimType'+';'+Istr(VStimType));
     Addline('BackgroundLuminance'+';'+Istr(BackgroundLuminance));
     Addline('KeepGratingOn'+';'+Bstr(KeepGratingOn));
     Addline('SquareWaveGrating'+';'+Bstr(SquareWaveGrating));
     Addline('MaskType'+';'+Istr(MaskType));
-    Addline('VAlpha'+';'+Rstr(VAlpha));
-    Addline('VOri'+';'+Rstr(VOri));
-    Addline('VOri2'+';'+Rstr(VOri2));
-    Addline('Vx'+';'+Rstr(Vx));
-    Addline('Vy'+';'+Rstr(Vy));
-    Addline('VSize'+';'+Rstr(VSize)); 
-    Addline('VSize2'+';'+Rstr(VSize2)); 
-    Addline('VSpeed'+';'+Rstr(VSpeed)); 
-    Addline('VLum'+';'+Rstr(VLum)); 
+    Addline('VAlpha'+';'+Rstr(VAlpha,1,5));
+    Addline('VOri'+';'+Rstr(VOri,1,5));
+    Addline('VOri2'+';'+Rstr(VOri2,1,5));
+    Addline('Vx'+';'+Rstr(Vx,1,5));
+    Addline('Vy'+';'+Rstr(Vy,1,5));
+    Addline('VSize'+';'+Rstr(VSize,1,5)); 
+    Addline('VSize2'+';'+Rstr(VSize2,1,5)); 
+    Addline('VSpeed'+';'+Rstr(VSpeed,1,5)); 
+    Addline('VLum'+';'+Rstr(VLum,1,5)); 
+    Addline('NFlash'+';'+Istr(NFlash)); 
     AddLine('ImageListFile'+';'+ImageListFile);  
     AddLine('ImageIdx'+';'+Istr(ImageIdx));  
     // (audio stim)
     Addline('SStimType'+';'+Istr(SStimType));
-    Addline('SFreq'+';'+Rstr(SFreq));
-    Addline('SFreq2'+';'+Rstr(SFreq2));
-    Addline('SLevelDB'+';'+Rstr(SLevelDB));
-    Addline('SLevelDB2'+';'+Rstr(SLevelDB2));
-    Addline('SAlpha'+';'+Rstr(SAlpha));
-    Addline('SDuration'+';'+Rstr(SDuration));
-    Addline('SDelay'+';'+Rstr(SDelay));
+    Addline('SFreq'+';'+Rstr(SFreq,1,5));
+    Addline('SFreq2'+';'+Rstr(SFreq2,1,5));
+    Addline('SLevelDB'+';'+Rstr(SLevelDB,1,5));
+    Addline('SLevelDB2'+';'+Rstr(SLevelDB2,1,5));
+    Addline('SAlpha'+';'+Rstr(SAlpha,1,5));
+    Addline('SDuration'+';'+Rstr(SDuration,1,5));
+    Addline('SDelay'+';'+Rstr(SDelay,1,5));
     AddLine('SoundListFile'+';'+SoundListFile);
     AddLine('SoundIdx'+';'+Istr(SoundIdx));  
     Addline('Equalization'+';'+Bstr(Equalization));
@@ -534,7 +542,7 @@ begin
         case StimTable.VType(j) of
           DB_Boolean: str1:=Bstr(StimTable[i].Value[j]);
           DB_Integer: str1:=Istr(StimTable[i].Value[j]);
-          DB_Real:    str1:=Rstr(StimTable[i].Value[j]);
+          DB_Real:    str1:=Rstr(StimTable[i].Value[j],1,5);
           DB_String:  str1:=StimTable[i].Value[j];
         end;
         str:=str+';'+str1;
@@ -589,7 +597,7 @@ begin
   if spar.fieldExists('NStimPerEp') then NStimPerEp:=spar.NStimPerEp; 
   if spar.fieldExists('NRepPerBlock') then NRepPerBlock:=spar.NRepPerBlock; 
   if spar.fieldExists('MaxTrialNumber') then MaxTrialNumber:=spar.MaxTrialNumber;
-  if spar.fieldExists('AutoFileName') then MaxTrialNumber:=spar.AutoFileName;
+  if spar.fieldExists('AutoFileName') then AutoFileName:=spar.AutoFileName;
   // (timing)
   if spar.fieldExists('StimDelay') then StimDelay:=spar.StimDelay;
   if spar.fieldExists('VisualStimDuration') then VisualStimDuration:=spar.VisualStimDuration;
@@ -604,6 +612,7 @@ begin
   if spar.fieldExists('SymmetricBehavior') then SymmetricBehavior:=spar.SymmetricBehavior;
   if spar.fieldExists('DoRepeatCondition') then DoRepeatCondition:=spar.DoRepeatCondition;
   if spar.fieldExists('DoubleGoNogo') then DoubleGoNogo:=spar.DoubleGoNogo;
+  if spar.fieldExists('DoRandomize') then DoRandomize:=spar.DoRandomize;
   if spar.fieldExists('RewardCriterion') then RewardCriterion:=spar.RewardCriterion;
   if spar.fieldExists('TaskType') then TaskType:=spar.TaskType;
   if spar.fieldExists('LickThresholdTop') then LickThresholdTop:=spar.LickThresholdTop;
@@ -628,6 +637,7 @@ begin
   if spar.fieldExists('VSize2') then VSize2:=spar.VSize2; 
   if spar.fieldExists('VSpeed') then VSpeed:=spar.VSpeed; 
   if spar.fieldExists('VLum') then VLum:=spar.VLum; 
+  if spar.fieldExists('NFlash') then NFlash:=spar.NFlash; 
   if spar.fieldExists('ImageListFile') then ImageListFile:=spar.ImageListFile; 
   if spar.fieldExists('ImageIdx') then ImageIdx:=spar.ImageIdx;
   // (audio stim)
@@ -652,11 +662,16 @@ var
   multcond:boolean;
   fieldname:string;
   firstvalue:string;
-  valuetype:integer;        
+  valuetype:integer;      
+  nstimguess:integer; // number of stimuli inferred from multi-values entries  
 begin
   // Init stim table and intermediary storage for unique-value parameters
   InitStimTable;
   spar.create;
+  nstimguess:=0;
+  
+  // Problem with files ending with new line
+  if ppar2.count=2 then ErrorDlg('Failed reading csv file. This might be because it ends up with a new line.');
   
   // Scan the text line per line to feed StimTable and spar    
   for j:=1 to ppar2.count do
@@ -674,6 +689,7 @@ begin
         str:=str+oneline[p];
         inc(p);
       end;
+      if str='' then break;
       // action with completed string   
       inc(i);   
       case i of
@@ -697,13 +713,19 @@ begin
            end;
         else AssignRecord(StimTable[i],fieldname,str); // assign the ith value
       end; 
-    end;  
-    if i=1 then AssignRecord(spar,fieldname,firstvalue);   
+    end;                
+    if i=1 then 
+      AssignRecord(spar,fieldname,firstvalue);
+    if i>1 then
+      if nstimguess=0 then nstimguess:=i else if nstimguess<>i then ErrorDlg('Found mismatching number of multiple entries in csv file.');
   end;
-  
+             
   // Define unique-value parameters from spar
   SetDefaultParameters;
   Record2Par(spar);  
+  
+  // Check number of stimuli
+  if (nstimguess<>0) and (nstimguess<>NStim) then ErrorDlg('Number of stimuli ('+Istr(NStim)+') does not match number of multiple entries ('+Istr(nstimguess)+') in csv file.');
 end; 
 
 // The function below is not a mere copy but interprets the 'stimgen' parameters,
@@ -738,6 +760,7 @@ begin
   mpar2.SymmetricBehavior:=SymmetricBehavior;
   mpar2.DoRepeatCondition:=DoRepeatCondition;
   mpar2.DoubleGoNogo:=DoubleGoNogo;
+  mpar2.DoRandomize:=DoRandomize;
   mpar2.RewardCriterion:=RewardCriterion;
   mpar2.LickThresholdTop:=LickThresholdTop;
   mpar2.LickThresholdBottom:=LickThresholdBottom;
@@ -810,6 +833,7 @@ begin
   if mpar2.fieldExists('SymmetricBehavior') then SymmetricBehavior:=mpar2.SymmetricBehavior else SymmetricBehavior:=False;
   if mpar2.fieldExists('DoRepeatCondition') then DoRepeatCondition:=mpar2.DoRepeatCondition else DoRepeatCondition:=False;
   if mpar2.fieldExists('DoubleGoNogo') then DoubleGoNogo:=mpar2.DoubleGoNogo else DoubleGoNogo:=False;
+  if mpar2.fieldExists('DoRandomize') then DoRandomize:=mpar2.DoRandomize else DoRandomize:=True;
   if mpar2.fieldExists('RewardCriterion') then RewardCriterion:=mpar2.RewardCriterion else RewardCriterion:=1;
   LickThresholdTop:=mpar2.LickThresholdTop;
   LickThresholdBottom:=mpar2.LickThresholdBottom;
@@ -1030,6 +1054,7 @@ begin
     addLine('Looming circle');
     addLine('none');
     addLine('Square');
+    addLine('Double flash');
   end;  
   AllListMemo.addLine('VisualStimuli');
   for i:=1 to VisualStimuli.count do AllListMemo.addLine(Istr(i)+';'+VisualStimuli.lines[i]);
@@ -1048,6 +1073,7 @@ begin
     addLine('Disks at 2 positions');
     addLine('Squares at 2 positions and common disk');
     addLine('Star-Square + Luminance');
+    addLine('Double flash');
   end;  
   AllListMemo.addLine('VisualProtocols');
   for i:=1 to VisualProtocols.count do AllListMemo.addLine(Istr(i)+';'+VisualProtocols.lines[i]);
@@ -1234,6 +1260,8 @@ begin
           10: ErrorDlg('circles at 2 positions and common disk not implemented in this version of the program');
           // Start-Square + Luminance
           11: begin VStimType:=1; stimtable[i].VAlpha:=alpha1*(1-ObjValueV)+alpha2*ObjValueV; stimtable[i].VLum:=beta1*(1-ObjValueV)+beta2*ObjValueV; end;
+          // Double-flash
+          12: begin VStimType:=9; stimtable[i].NFlash:=Round(alpha1*(1-ObjValueV)+alpha2*ObjValueV); end;
         end
       else
         VStimType:=7;
@@ -1281,8 +1309,7 @@ begin
     // Init and split
     create;
     dividePanel('1',3,FALSE);
-    if DoMenu then
-      splitPanel('1.2','General|Timing|Behavior|Visual Stim|Audio Stim|Notes');
+    splitPanel('1.2','General|Timing|Behavior|Visual Stim|Audio Stim|Notes');
 
     // Files menu
     selectPanel('1.1');
@@ -1290,61 +1317,59 @@ begin
     if not Domenu then
       getCommandA('Reload',Go,101);
     getCommandA('Load Parameters...',Go,102);
-    if DoMenu then
-    begin
-      getCommandA('Save Parameters',Go,103);
-      getCommandA('Save Parameters as...', Go, 104);
-    end;
+    getCommandA('Save Parameters',Go,103);
+    getCommandA('Save Parameters as...', Go, 104);
     
     getRealA('Reward conversion (ms/ul)',rewardConversion,4,1,105);
     getRealA('Total Reward (ul)',rewardTotal,4,1,106);
     //setText(''); // add a separation line
   
+    // General parameters menu
+    selectPanel('1.2.1');
+    if Domenu then getstringList1A('Protocol Type',ProtocolList,ProtocolType,501);
+    getstringList1('Trigger',TriggerList,TriggerType);
+    getInteger('# Stimuli',NStim,5);
+    getInteger('# Stim per Episode',NStimPerEp,5);
+    if Domenu or not (StimTable.FieldExists('NRepPerBlock')) then getInteger('# Repetition per randomized block',NRepPerBlock,5);
+    getBoolean('Randomize conditions',DoRandomize);
+    getInteger('Max. trial number',MaxTrialNumber,5);
+    setText(''); // add a separation line
+    getBoolean('Automatic data file name',AutoFileName);
+    setText(''); // add a separation line
+    getBoolean('Behavior', Behavior);
+    getBoolean('Visual', Visual);
+    getBoolean('Auditory', Auditory);
+  
+    // Timing
+    selectPanel('1.2.2');
+    getInteger('Stimulation delay (ms)',StimDelay,5);
+    getInteger('Visual stimulation duration (ms)',VisualStimDuration,5);
+    getInteger('Lick counting delay (ms)',LickCountingDelay,5);
+    getInteger('Reward delay (ms)',RewardDelay,5);
+    getInteger('Min trial interval (ms)',TrialInterval,5);
+    getInteger('Additional random delay (ms)',RandomDelay,5);
+    getInteger('Additional punition delay (ms)',PunitionDelay,5);
+    getInteger('Refractory time (ms)',RefractoryTime,5);
+    
+    // Behavior
+    selectPanel('1.2.3');
+    getstringList1('Detection Type',DetectionList,DetectionType);
+    getBoolean('Symmetric Behavior',SymmetricBehavior);
+    getBoolean('Repeat condition until correct',DoRepeatCondition);
+    getBoolean('Double go-no go',DoubleGoNogo);
+    getstringList1('Reward  Criterion',RewardCriterionList,RewardCriterion);
+    getInteger('Minimal lick number',LickNumber,5);
+    getInteger('Maximal reward',MaxReward,5);
+    getReal('Sensor top threshold (mV)',LickThresholdTop,5,1);
+    getReal('Sensor bottom threshold (mV)',LickThresholdBottom,5,1);
+    getReal('Reward volume (ul)',rewardVolume,5,1);
+    getInteger('# free training trials',NFreeTrials,5);
+    getInteger('reactivate after # no-lick trials',NTrialsReactivate,5);
+    
+    // Visual parameters
+    selectPanel('1.2.4');
     if DoMenu then
     begin
-      // General parameters menu
-      selectPanel('1.2.1');
-      getstringList1A('Protocol Type',ProtocolList,ProtocolType,501);
-      getstringList1('Trigger',TriggerList,TriggerType);
-      getInteger('# Stimuli',NStim,5);
-      getInteger('# Stim per Episode',NStimPerEp,5);
-      getInteger('# Repetition per randomized block',NRepPerBlock,5);
-      getInteger('Max. trial number',MaxTrialNumber,5);
-      setText(''); // add a separation line
-      getBoolean('Automatic data file name',AutoFileName);
-      setText(''); // add a separation line
-      getBoolean('Behavior', Behavior);
-      getBoolean('Visual', Visual);
-      getBoolean('Auditory', Auditory);
-    
-      // Timing
-      selectPanel('1.2.2');
-      getInteger('Stimulation delay (ms)',StimDelay,5);
-      getInteger('Visual stimulation duration (ms)',VisualStimDuration,5);
-      getInteger('Lick counting delay (ms)',LickCountingDelay,5);
-      getInteger('Reward delay (ms)',RewardDelay,5);
-      getInteger('Min trial interval (ms)',TrialInterval,5);
-      getInteger('Additional random delay (ms)',RandomDelay,5);
-      getInteger('Additional punition delay (ms)',PunitionDelay,5);
-      getInteger('Refractory time (ms)',RefractoryTime,5);
-    
-      // Behavior
-      selectPanel('1.2.3');
-      getstringList1('Detection Type',DetectionList,DetectionType);
-      getBoolean('Symmetric Behavior',SymmetricBehavior);
-      getBoolean('Repeat condition until correct',DoRepeatCondition);
-      getBoolean('Double go-no go',DoubleGoNogo);
-      getstringList1('Reward  Criterion',RewardCriterionList,RewardCriterion);
-      getInteger('Minimal lick number',LickNumber,5);
-      getInteger('Maximal reward',MaxReward,5);
-      getReal('Sensor top threshold (mV)',LickThresholdTop,5,1);
-      getReal('Sensor bottom threshold (mV)',LickThresholdBottom,5,1);
-      getReal('Reward volume (ul)',rewardVolume,5,1);
-      getInteger('# free training trials',NFreeTrials,5);
-      getInteger('reactivate after # no-lick trials',NTrialsReactivate,5);
-    
-      // Visual parameters
-      selectPanel('1.2.4');
       getstringList1('Stimulus protocol',VisualProtocols,VProtocolType);
       getInteger('Background Luminance',BackgroundLuminance,5);
       getBoolean('Keep grating on',KeepGratingOn);
@@ -1359,11 +1384,14 @@ begin
       getReal('Speed',VSpeed,5,1);
       getString('Image list file',ImageListFile,30);
       getCommandA('Choose images', Go,301);
-      getCommandA('Test visual stim', Go,302);
       getCommandA('Calibration image for DLP', Go,303);
+    end;
+    getCommandA('Test visual stim', Go,302);
     
-      // Auditory parameters
-      selectPanel('1.2.5');
+    // Auditory parameters
+    selectPanel('1.2.5');
+    if DoMenu then
+    begin
       getstringList1A('Stimulus protocol',AuditoryProtocols,SProtocolType,502);
       getReal('S+ parameter',f1,5,3);
       getReal('S- parameter',f2,5,3);
@@ -1373,24 +1401,13 @@ begin
       getReal('Amplitude (dB)',SLevelDB,5,1);
       getString('Sound list file',SoundListFile,30);
       getCommandA('Load sounds', Go,401);
-      getCommandA('Test sounds', Go,402);
       getBoolean('Equalization',Equalization);
-    
-      // Notes
-      selectPanel('1.2.6');
-      getMemo('',ParametersNotes,30,15,0);
-    end else
-    begin
-      setText(''); // add a separation line
-      // Very simplified menu with no protocol parameter
-      selectPanel('1.2');
-      //getstringList1('Trigger',TriggerList,TriggerType);
-      getInteger('Max. trial number',MaxTrialNumber,5);
-      setText(''); // add a separation line
-      getCommandA('Test visual stim', Go,302);
-      getCommandA('Test sounds', Go,402);   
-      setText(''); // add a separation line   
     end;
+    getCommandA('Test sounds', Go,402);
+    
+    // Notes
+    selectPanel('1.2.6');
+    getMemo('',ParametersNotes,30,15,0);
 
     // Main commands
     selectPanel('1.3');
@@ -1438,10 +1455,12 @@ begin
    addobject(1,v[2]);   
    vfilt2.create;   addobject(1,vfilt2);
    v1.CpX:=1; vfilt.CpX:=1; v2.CpX:=1; vfilt2.CpX:=1;
+   v1.color:=CL_Black; vfilt.color:=CL_Black;
    v1.CpY:=1; vfilt.CpY:=1; v2.CpY:=1; vfilt2.CpY:=1;
    v2.color:=CL_Aqua; vfilt2.color:=CL_Aqua;
    addobject(2,LickRecord);
    addobject(2,LickRecord2);
+   LickRecord.color:=CL_Black;
    LickRecord2.color:=CL_Aqua;
    addobject(3,CRecord);
    PageFont := true;
@@ -1751,10 +1770,51 @@ begin
 end;
 
 // Looming circle
+procedure MakeDoubleFlash;
+var
+  nframe: integer;
+begin
+  // create circle (Tdisk object)
+  with circle do
+  begin
+    create;
+    x:=xCenter;
+    y:=yCenter;
+    dx:=VSize;
+    dy:=VSize;
+    Lum:= VLum;
+  end;
+
+  // create anim (Ttrajectory object) to animate the circle 
+  nframe:=Round(VisualStimDuration/1000/VisualStim.TFrame);
+  vect.create(t_double,1,nframe);
+  for i:=1 to nframe do vect[i]:=0;
+  if NFlash=1 then
+    for i:=1 to Round(nframe/3) do vect[i]:=1
+  else if NFlash=2 then
+  begin
+    for i:=1 to Round(nframe/3) do vect[i]:=1;
+    for i:=Round(nframe*2/3) to nframe do vect[i]:=1;
+  end
+  else 
+    ErrorDlg('Number of flashes can be only 1 or 2');
+  with anim do
+  begin
+    create;
+    StartTime:=StimDelay/1000; // secondes
+    DtON:= VisualStimDuration/1000;
+    //DtOff:= 0;
+    setVisualObject(circle);
+    AddVector('ONSCREEN',vect);
+    setSyncPulse(0);
+  end;
+end;
+
+// Looming circle
 procedure MakeLoomingCircle;
 var
   nframe: integer;
-  cSize, cOn: TVector;
+  cOn: TVector;
 begin
   // create circle (Tdisk object)
   with circle do
@@ -1935,6 +1995,7 @@ begin
     5: MakeLuminanceCircle;
     6: MakeLoomingCircle;    // 7: corresponds to 'none'
     8: MakeOneofTwoRectangles;    //actually squares
+    9: MakeDoubleFlash;
   end;
 end;
 
@@ -2208,6 +2269,7 @@ begin
           Sounds[i][k] := SLevel*(1-SAlpha)*Sin(2*PI*SFreq*time);
           if (SAlpha>0) then Sounds[i][k] := Sounds[i][k] + SLevel*SAlpha*Sin(2*PI*SFreq2); 
         end;
+        //for k:=Round(nS/3) to Round(ns*2/3) do Sounds[i][k]:=0; 
       end;
       3..4: // 1 or 2 frequency ramp(s)
       begin
@@ -2367,9 +2429,9 @@ begin
     //vector.fill(5000);
     //vector[vector.Iend]:=0;
     if side=1 then 
-      begin counter:=0; outNum:=9; end
+      begin counter:=0; outNum:=9; volume:=volume; end
     else 
-      begin counter:=1; outNum:=10; end;
+      begin counter:=1; outNum:=10; volume:=volume; end;
     setCounterOutput(counter,false,0,volume*rewardConversion/1000,0.1,false,outNum);
     start('');
     rewardTotal:=rewardTotal+volume;
@@ -2517,8 +2579,11 @@ begin
   end
   else if SymmetricBehavior then
   begin
-    if ((TaskType=1) OR (TaskType=3)) AND (w>=w2+LickNumber) then rewardChannel:=1
-    else if ((TaskType=2) OR (TaskType=4)) AND (w2>=w+LickNumber) then rewardChannel:=2;
+    //if ((TaskType=1) OR (TaskType=3)) AND (w>=w2+LickNumber) then rewardChannel:=1
+    //else if ((TaskType=2) OR (TaskType=4)) AND (w2>=w+LickNumber) then rewardChannel:=2;
+    status.text[3]:='feature hard coded!';
+    if ((TaskType=1) OR (TaskType=3)) AND (w>=LickNumber) AND (w2=0) then rewardChannel:=1
+    else if ((TaskType=2) OR (TaskType=4)) AND (w2>=LickNumber) AND (w=0) then rewardChannel:=2;
     if (LickNumber=0) AND (w+w2=0) then rewardChannel:=0; // special behavior for LickNumer=0: reward if at least one correct lick, and no more incorrect licks than correct licks 
   end
   else
@@ -2577,7 +2642,7 @@ begin
   if CondRepeat=2 then Crecord[cnt] := 0.5 + (Crecord[cnt]-0.5)/5;   // if we are repeating a previous repetition and previous incorrect response was made, mark correctness very lightly
   
   // Repeat condition in next trial if trial was not correct?
-  if DoRepeatCondition AND (CRecord[cnt]<=0.5) then
+  if DoRepeatCondition AND (TaskType<=2) AND (CRecord[cnt]<=0.5) AND ((not DoubleGoNogo) or ActiveReward) then // in 2nle GoNogo mode, mouse could have made correct lick without correct answer (in this case ActiveReward is false)
     begin
       if (CondRepeat<=1) AND (CRecord[cnt]=0.5) then
         CondRepeat:=1  // repeat condition, no incorrect response was made yet
@@ -2588,7 +2653,10 @@ begin
   else 
     begin
       CondRepeat:=0; //if not correct in DoRepeatCondition mode, set for repeating the same condition at next trial
-      CondRepeatNoLick:=0;
+      if (not DoRepeatCondition) AND (TaskType=1) AND noLick then
+        inc(CondRepeatNoLick)
+      else
+        CondRepeatNoLick:=0;
     end;
   status.text[6] := 'repeat '+Istr(CondRepeat)+'repeat nolick '+Istr(CondRepeatNoLick);
 end;
@@ -3032,20 +3100,39 @@ end;
 // Randomization function
 procedure PrebuildTrialTypes;
 var
-   i,j,idx,nblock,tmp:integer;
+   i,j,idx,nblock,nrepk,tmp:integer;
 begin
   // Create vector with all conditions repeated NRepPerBlock times
-  nblock := NStim*NRepPerBlock;
-  RandomizationVector.create(t_longint,0,nblock-1);
-  for i:=1 to NStim do
-    for j:=0 to NRepPerBlock-1 do
-      RandomizationVector[(i-1)*NRepPerBlock+j] := i;
+  if StimTable.FieldExists('NRepPerBlock') then
+  begin
+    nblock := 0;
+    for i:=1 to NStim do nblock := nblock+StimTable[i].NRepPerBlock;
+    RandomizationVector.create(t_longint,0,nblock-1);
+    idx:=0;
+    for i:=1 to NStim do
+    begin
+      nrepk:=StimTable[i].NRepPerBlock-1;
+      for j:=0 to nrepk do
+      begin 
+        RandomizationVector[idx] := i; 
+        inc(idx); 
+      end;
+    end;
+  end 
+  else
+  begin
+    nblock := NStim*NRepPerBlock;
+    RandomizationVector.create(t_longint,0,nblock-1);
+    for i:=1 to NStim do
+      for j:=0 to NRepPerBlock-1 do
+        RandomizationVector[(i-1)*NRepPerBlock+j] := i;
+  end;
   // Loop on trial number
   for cntCond:=1 to MaxTrialNumber do
   begin
     idx := (cntCond-1) mod nblock;
     // re-shuffle vector?
-    if idx=0 then
+    if DoRandomize AND (idx=0) then
       for i:=0 to nblock-1 do
       begin
         j := floor(nblock*Random);
@@ -3068,6 +3155,7 @@ begin
   // increment trial and condition counts (starts at 1 for the first trial)
   inc(cnt);
   if CondRepeat=0 then inc(cntCond);
+  status.text[7]:=Istr(cntCond);
   // get trial type
   ICond:=TPrebuild.JValue[cntCond];
   TRecord[cnt]:=Icond;
