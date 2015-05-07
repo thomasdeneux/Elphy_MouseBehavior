@@ -3267,7 +3267,7 @@ procedure SaveEpReport;
 begin
   // save parameters after first trial rather than at the end of the experiment:
   // that way they will be in the file even if a crash occurs
-  if cnt=1 then SaveParametersDatafile;
+  if cnt=NStimPerEp then SaveParametersDatafile;
   // save some variables for the current trial
   epReport.create;
   epReport.cnt := cnt;
