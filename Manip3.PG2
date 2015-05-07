@@ -43,7 +43,7 @@ var
   Go:integer;
   res: integer;
   gh,Vbase:real;
-  time0:integer;
+  timestart:integer;
   cnt, cntCond, ICond: integer;
   
   ValveOpen: boolean;
@@ -153,10 +153,10 @@ var
   LickCountingDelay,RewardDelay,RandomDelay,PunitionDelay,RefractoryTime: integer;
   TrialInterval: integer;
   // (behavior)
-  DetectionType,RewardCriterion: word;
-  SymmetricBehavior: boolean;
+  DetectionType: word;
+  SymmetricBehavior, ImmediateReward: boolean;
+  SymmetricRewardMode: word; //1=2blGoNogo, 2=Diff., 3=Exclusive
   DoRepeatCondition: boolean; // repeat condition if response is not correct
-  DoubleGoNogo: boolean;
   DoRandomize: boolean;
   TaskType: word; // 1 for S+, 2 for S-, 3 for S+catch, 4 for S-catch, 5 for other catch
   LickThresholdTop, LickThresholdBottom: real;
@@ -200,7 +200,7 @@ var
   StimTable: TDBtable; // Values of parameters that change in different conditions
   ParList: TDBrecord;  // All the parameters and their types
   spar: TDBrecord;     // An intermediary for when reading .csv file
-  ProtocolList,DetectionList,TriggerList,RewardCriterionList: Tmemo;       // Various lists
+  ProtocolList,DetectionList,TriggerList, SymmetricRewardModeList: Tmemo;       // Various lists
   VisualProtocols,AuditoryProtocols,VisualStimuli,AuditoryStimuli: Tmemo;
   MaskList: Tmemo;
   AllListMemo: Tmemo; // summarizes the correspondence between list items and numbers
@@ -300,9 +300,9 @@ begin
   // (behavior)
   DetectionType:=2;
   SymmetricBehavior:=False; // go-nogo
-  DoubleGoNogo:=False;
+  SymmetricRewardMode:=2; // lick diff.
   DoRandomize:=True;
-  RewardCriterion:=1;
+  ImmediateReward:=False;
   TaskType:=1;
   LickThresholdTop:=4000;
   LickThresholdBottom:=2500;
@@ -399,9 +399,9 @@ begin
   parlist.DetectionType := db_integer;
   parlist.SymmetricBehavior := db_boolean;
   parlist.DoRepeatCondition := db_boolean;
-  parlist.DoubleGoNogo := db_boolean;
+  parlist.SymmetricRewardMode := db_integer;
   parlist.DoRandomize := db_boolean;
-  parlist.RewardCriterion := db_integer;
+  parlist.ImmediateReward := db_boolean;
   parlist.TaskType := db_integer;
   parlist.LickThresholdTop := db_real;
   parlist.LickThresholdBottom := db_real;
@@ -499,9 +499,9 @@ begin
     Addline('DetectionType'+';'+Istr(DetectionType));
     Addline('SymmetricBehavior'+';'+Bstr(SymmetricBehavior));
     Addline('DoRepeatCondition'+';'+Bstr(DoRepeatCondition));
-    Addline('DoubleGoNogo'+';'+Bstr(DoubleGoNogo));
+    Addline('SymmetricRewardMode'+';'+Istr(SymmetricRewardMode));
     Addline('DoRandomize'+';'+Bstr(DoRandomize));
-    Addline('RewardCriterion'+';'+Istr(RewardCriterion));
+    Addline('ImmediateReward'+';'+Bstr(ImmediateReward));
     Addline('TaskType'+';'+Istr(TaskType));
     Addline('LickThresholdTop'+';'+Rstr(LickThresholdTop,1,5));
     Addline('LickThresholdBottom'+';'+Rstr(LickThresholdBottom,1,5));
@@ -570,13 +570,13 @@ var
   vtype: integer;
 begin
   // Some old parameters do not exist any more!!
-  if (fieldname='DoMask') or (fieldname='rewardSlope') then
+  if (fieldname='DoMask') or (fieldname='rewardSlope') or (fieldname='DoubleGoNogo') then
     ErrorDlg('Parameter name "'+fieldname+'" does not exist any more')
   else
   begin
     vtype := ParList.ImplicitValue[fieldname];
     case vtype of
-      db_boolean: spar.ImplicitValue[fieldname]:=((valuestr='TRUE') OR (valuestr='true'));
+      db_boolean: spar.ImplicitValue[fieldname]:=((valuestr='TRUE') OR (valuestr='true') OR (valuestr='True'));
       db_integer: spar.ImplicitValue[fieldname]:=ValInt(valuestr);
       db_real:    spar.ImplicitValue[fieldname]:=ValReal(valuestr);
       db_string:  spar.ImplicitValue[fieldname]:=valuestr;
@@ -623,9 +623,9 @@ begin
   if spar.fieldExists('DetectionType') then DetectionType:=spar.DetectionType;
   if spar.fieldExists('SymmetricBehavior') then SymmetricBehavior:=spar.SymmetricBehavior;
   if spar.fieldExists('DoRepeatCondition') then DoRepeatCondition:=spar.DoRepeatCondition;
-  if spar.fieldExists('DoubleGoNogo') then DoubleGoNogo:=spar.DoubleGoNogo;
+  if spar.fieldExists('SymmetricRewardMode') then SymmetricRewardMode:=spar.SymmetricRewardMode;
   if spar.fieldExists('DoRandomize') then DoRandomize:=spar.DoRandomize;
-  if spar.fieldExists('RewardCriterion') then RewardCriterion:=spar.RewardCriterion;
+  if spar.fieldExists('ImmediateReward') then ImmediateReward:=spar.ImmediateReward else if spar.fieldExists('RewardCriterion') then ImmediateReward:=(spar.RewardCriterion=2);
   if spar.fieldExists('TaskType') then TaskType:=spar.TaskType;
   if spar.fieldExists('LickThresholdTop') then LickThresholdTop:=spar.LickThresholdTop;
   if spar.fieldExists('LickThresholdBottom') then LickThresholdBottom:=spar.LickThresholdBottom;
@@ -775,9 +775,9 @@ begin
   mpar2.DetectionType:=DetectionType;
   mpar2.SymmetricBehavior:=SymmetricBehavior;
   mpar2.DoRepeatCondition:=DoRepeatCondition;
-  mpar2.DoubleGoNogo:=DoubleGoNogo;
+  mpar2.SymmetricRewardMode:=SymmetricRewardMode;
   mpar2.DoRandomize:=DoRandomize;
-  mpar2.RewardCriterion:=RewardCriterion;
+  mpar2.ImmediateReward:=ImmediateReward;
   mpar2.LickThresholdTop:=LickThresholdTop;
   mpar2.LickThresholdBottom:=LickThresholdBottom;
   mpar2.LickNumber:=LickNumber;
@@ -851,9 +851,9 @@ begin
   DetectionType:=mpar2.DetectionType;
   if mpar2.fieldExists('SymmetricBehavior') then SymmetricBehavior:=mpar2.SymmetricBehavior else SymmetricBehavior:=False;
   if mpar2.fieldExists('DoRepeatCondition') then DoRepeatCondition:=mpar2.DoRepeatCondition else DoRepeatCondition:=False;
-  if mpar2.fieldExists('DoubleGoNogo') then DoubleGoNogo:=mpar2.DoubleGoNogo else DoubleGoNogo:=False;
+  if mpar2.fieldExists('SymmetricRewardMode') then SymmetricRewardMode:=mpar2.SymmetricRewardMode else SymmetricRewardMode:=2;
   if mpar2.fieldExists('DoRandomize') then DoRandomize:=mpar2.DoRandomize else DoRandomize:=True;
-  if mpar2.fieldExists('RewardCriterion') then RewardCriterion:=mpar2.RewardCriterion else RewardCriterion:=1;
+  if mpar2.fieldExists('ImmediateReward') then ImmediateReward:=mpar2.ImmediateReward else if mpar2.fieldExists('RewardCriterion') then ImmediateReward:=(mpar2.RewardCriterion=2) else ImmediateReward:=False;
   LickThresholdTop:=mpar2.LickThresholdTop;
   LickThresholdBottom:=mpar2.LickThresholdBottom;
   LickNumber:=mpar2.LickNumber;
@@ -993,19 +993,20 @@ begin
   ParameterChanged:=false;
 
   // Load the parameters
-  if DoMenu then
-  begin
-    mpar2.create;
-    mpar2.LoadObject(FileName);
-    TDBrecord2MenuPar; // copy menu parameters from mpar2 to mpar
-    MenuPar2FullPar;   // Generate the full parameters (single parameters + stim table)
-  end
-  else
-  begin
-    ppar2.create;
-    ppar2.LoadFromFile(FileName);
-    Memo2FullPar; // copy parameters from ppar2 to single parameters + stim table
-  end;
+  if FileExists(FileName) AND NOT (str2='*') then
+    if DoMenu then
+    begin
+      mpar2.create;
+      mpar2.LoadObject(FileName);
+      TDBrecord2MenuPar; // copy menu parameters from mpar2 to mpar
+      MenuPar2FullPar;   // Generate the full parameters (single parameters + stim table)
+    end
+    else
+    begin
+      ppar2.create;
+      ppar2.LoadFromFile(FileName);
+      Memo2FullPar; // copy parameters from ppar2 to single parameters + stim table
+    end;
   
   // Redisplay the menu (because many controls do not appear if we are not in Menu mode)
   DesignMenu; 
@@ -1045,14 +1046,16 @@ begin
   AllListMemo.addLine('TriggerList');
   for i:=1 to TriggerList.count do AllListMemo.addLine(Istr(i)+';'+TriggerList.lines[i]);
 
-  with RewardCriterionList do
+  with SymmetricRewardModeList do
   begin
     create;
-    addLine('Lick Count');
-    addLine('Immediate on lick');
+    addLine('Double go-nogo');
+    addLine('Difference of lick numbers');
+    addLine('First licks');
+    addLine('Exclusive licks');
   end;
-  AllListMemo.addLine('RewardCriterionList');
-  for i:=1 to RewardCriterionList.count do AllListMemo.addLine(Istr(i)+';'+RewardCriterionList.lines[i]);
+  AllListMemo.addLine('SymmetricRewardModeList');
+  for i:=1 to SymmetricRewardModeList.count do AllListMemo.addLine(Istr(i)+';'+SymmetricRewardModeList.lines[i]);
 
   with DetectionList do
   begin
@@ -1224,6 +1227,10 @@ begin
   begin
     if DetectionType<>4 then
       CheckCurrentSettings:=ERR('Symmetric Behavior possible only with active electric lick detection');
+    if ImmediateReward AND (SymmetricRewardMode=2) then
+      CheckCurrentSettings:=ERR('Lick difference reward mode not possible for Immediate Reward');
+    if (not ImmediateReward) AND (SymmetricRewardMode=3) then
+      CheckCurrentSettings:=ERR('First licks reward mode is available only for Immediate Reward mode');
   end;
 
 end;
@@ -1381,16 +1388,16 @@ begin
     selectPanel('1.2.3');
     getstringList1('Detection Type',DetectionList,DetectionType);
     getBoolean('Symmetric Behavior',SymmetricBehavior);
+    getstringList1('Symmetric Reward mode',SymmetricRewardModeList,SymmetricRewardMode);
+    getBoolean('Immediate Reward',ImmediateReward);
     getBoolean('Repeat condition until correct',DoRepeatCondition);
-    getBoolean('Double go-no go',DoubleGoNogo);
-    getstringList1('Reward  Criterion',RewardCriterionList,RewardCriterion);
     getInteger('Minimal lick number',LickNumber,5);
     getInteger('Maximal reward',MaxReward,5);
     getReal('Sensor top threshold (mV)',LickThresholdTop,5,1);
     getReal('Sensor bottom threshold (mV)',LickThresholdBottom,5,1);
     getReal('Reward volume (ul)',rewardVolume,5,1);
-    getInteger('# free training trials',NFreeTrials,5);
-    getInteger('reactivate after # no-lick trials',NTrialsReactivate,5);
+    getInteger('# free initial trials',NFreeTrials,5);
+    getInteger('reactivate after # no-reward',NTrialsReactivate,5);
     
     // Visual parameters
     selectPanel('1.2.4');
@@ -2386,7 +2393,7 @@ begin
         nS := Floor((SDuration+SInterval)/1000*Sound_Sampling_Frequency);
         Sounds[i].create(T_double,0,nS-1);
         // fill it
-        for k:=0 to Floor(SDuration/1000*Sound_Sampling_Frequency) do
+        for k:=0 to Floor(SDuration/1000*Sound_Sampling_Frequency)-1 do
         begin
           time := k / Sound_Sampling_Frequency;
           if SFreq>0 then
@@ -2548,7 +2555,7 @@ var
   det: Tdetect; // We use a Tdetect object for the lick detection
   w,w2: integer;
   rewardChannel: integer;
-  isFreeTrial, noLick: boolean;
+  isFreeTrial: boolean;
 begin
   Case DetectionType of
     // Head-fixed touch
@@ -2647,31 +2654,35 @@ begin
 
   // Correct answer?
   rewardChannel:=0;
-  if RewardCriterion=2 then // immediate reward?
+  if ImmediateReward then // Immediate reward
   begin
     if ((TaskType=1) OR (TaskType=3)) AND (Licked=1) then rewardChannel:=1
     else if ((TaskType=2) OR (TaskType=4)) AND (Licked=2) then rewardChannel:=2;
   end
-  else if SymmetricBehavior and DoubleGoNogo then
-  begin
-    if ((TaskType=1) OR (TaskType=3)) AND (w>=LickNumber) then rewardChannel:=1
-    else if ((TaskType=2) OR (TaskType=4)) AND (w2>=LickNumber) then rewardChannel:=2;
-  end
   else if SymmetricBehavior then
   begin
-    //if ((TaskType=1) OR (TaskType=3)) AND (w>=w2+LickNumber) then rewardChannel:=1
-    //else if ((TaskType=2) OR (TaskType=4)) AND (w2>=w+LickNumber) then rewardChannel:=2;
-    status.text[3]:='feature hard coded!';
-    if ((TaskType=1) OR (TaskType=3)) AND (w>=LickNumber) AND (w2=0) then rewardChannel:=1
-    else if ((TaskType=2) OR (TaskType=4)) AND (w2>=LickNumber) AND (w=0) then rewardChannel:=2;
-    if (LickNumber=0) AND (w+w2=0) then rewardChannel:=0; // special behavior for LickNumer=0: reward if at least one correct lick, and no more incorrect licks than correct licks 
+    case SymmetricRewardMode of 
+      1: // 2ble Go-NoGo
+        if ((TaskType=1) OR (TaskType=3)) AND (w>=LickNumber) then rewardChannel:=1
+        else if ((TaskType=2) OR (TaskType=4)) AND (w2>=LickNumber) then rewardChannel:=2;
+      2: // Lick difference
+      begin
+        if ((TaskType=1) OR (TaskType=3)) AND (w>=w2+LickNumber) then rewardChannel:=1
+        else if ((TaskType=2) OR (TaskType=4)) AND (w2>=w+LickNumber) then rewardChannel:=2;
+        if (LickNumber=0) AND (w+w2=0) then rewardChannel:=0; // special behavior for LickNumer=0: reward if at least one correct lick, and no more incorrect licks than correct licks 
+      end;
+      3: // First licks
+        ErrorDlg('First licks mode is possible only for Immediate Reward');
+      4: // 'Exclusive' lick
+        if ((TaskType=1) OR (TaskType=3)) AND (w>=LickNumber) AND (w2=0) then rewardChannel:=1
+        else if ((TaskType=2) OR (TaskType=4)) AND (w2>=LickNumber) AND (w=0) then rewardChannel:=2;
+    end;
   end
-  else
+  else // Go-NoGo
     if ((TaskType=1) OR (TaskType=3)) AND (w>= LickNumber) then rewardChannel:=1;
     
   // Give the reward if correct answer or free trial or reactivate trial
-  noLick := ((RewardCriterion=2) AND activeReward) OR ((RewardCriterion=1) AND (w+w2=0));
-  isFreeTrial := (cnt<=NFreeTrials) OR ((NTrialsReactivate>0) AND noLick AND (CondRepeatNoLick>=NTrialsReactivate));
+  isFreeTrial := (cnt<=NFreeTrials) OR ((NTrialsReactivate>0) AND (rewardChannel=0) AND (CondRepeatNoLick>=NTrialsReactivate));
   if (rewardChannel>0) AND activeReward then 
     OpenValve(Floor(rewardVolume),rewardChannel)
   else if isFreeTrial AND activeReward then
@@ -2700,45 +2711,45 @@ begin
   case TaskType of
     1: if SymmetricBehavior then
        begin 
-         if RewardCriterion=2 then // immediate 
+         if ImmediateReward then // immediate 
            CRecord[cnt] := Ord(Licked=1)*0.5 + Ord(licked<>2)*0.5 
          else
            CRecord[cnt] := Ord(w>w2)*0.5 + Ord(w>=w2)*0.5;
        end
        else
-         CRecord[cnt] := Ord(rewardChannel>0);
+         CRecord[cnt] := Ord(w>=LickNumber);
     2: if SymmetricBehavior then
        begin 
-         if RewardCriterion=2 then 
+         if ImmediateReward then 
            CRecord[cnt] := Ord(Licked=2)*0.5 + Ord(licked<>1)*0.5  
          else
            CRecord[cnt] := Ord(w2>w)*0.5 + Ord(w2>=w)*0.5;
        end
        else
-         CRecord[cnt] := Ord(rewardChannel=0);
+         CRecord[cnt] := Ord(w<LickNumber);
     3..5: begin status.text[3]:='catched trial'; CRecord[cnt] := 0.5; end;
   end;
   if CondRepeat=1 then Crecord[cnt] := 0.5 + (Crecord[cnt]-0.5)*4/5; // if we are repeating a previous repetition, mark correctness more lightly
   if CondRepeat=2 then Crecord[cnt] := 0.5 + (Crecord[cnt]-0.5)/5;   // if we are repeating a previous repetition and previous incorrect response was made, mark correctness very lightly
   
   // Repeat condition in next trial if trial was not correct?
-  if DoRepeatCondition AND (TaskType<=2) AND (CRecord[cnt]<=0.5) AND ((not DoubleGoNogo) or ActiveReward) then // in 2nle GoNogo mode, mouse could have made correct lick without correct answer (in this case ActiveReward is false)
+  if DoRepeatCondition AND (TaskType<=2) AND (CRecord[cnt]<=0.5) AND ActiveReward then // in 2nle GoNogo mode, mouse could have made correct lick without correct answer (in this case ActiveReward is false)
     begin
       if (CondRepeat<=1) AND (CRecord[cnt]=0.5) then
         CondRepeat:=1  // repeat condition, no incorrect response was made yet
       else
-        CondRepeat:=2; // incorrect response was made
-      if noLick then inc(CondRepeatNoLick);
+        CondRepeat:=2; // incorrect response was made  
     end
   else 
-    begin
-      CondRepeat:=0; //if not correct in DoRepeatCondition mode, set for repeating the same condition at next trial
-      if (not DoRepeatCondition) AND (TaskType=1) AND noLick then
-        inc(CondRepeatNoLick)
-      else
-        CondRepeatNoLick:=0;
-    end;
-  status.text[6] := 'repeat '+Istr(CondRepeat)+'repeat nolick '+Istr(CondRepeatNoLick);
+    CondRepeat:=0;
+    
+  // Increment for 'reactivate' if mouse was not rewarded
+  if (rewardChannel=0) AND activeReward then
+    inc(CondRepeatNoLick)
+  else
+    CondRepeatNoLick:=0;
+
+  status.text[6] := 'repeat '+Istr(CondRepeat)+', no-reward '+Istr(CondRepeatNoLick);
 end;
  
 procedure ImmediateRewardFunction(n:integer);
@@ -2755,8 +2766,10 @@ begin
       begin
         if Licked=0 then Licked:=1; // remember which channel was first licked
         if ((TaskType=1) OR (TaskType=3)) then begin OpenValve(rewardVolume,1); activeReward:=FALSE; end;
-        if not DoubleGoNogo then activeReward:=FALSE;
-      end;
+        if SymmetricRewardMode<>1 then activeReward:=FALSE; // rewards won't be allowed any more on the other tube, except if 2ble GoNogo mode
+      end
+      else if (SymmetricRewardMode=4) AND ((TaskType=2) OR (TaskType=4)) then
+        activeReward:=FALSE; // 'exclusive' licks: rewards won't be allowed any more on the other tube
     end;
   //status.text[6]:=('A'+Istr(LickCnt)+'/'+Istr(LickCnt2));
 end;
@@ -2775,8 +2788,10 @@ begin
       begin
         if Licked=0 then Licked:=2; // remember which channel was first licked
         if ((TaskType=2) OR (TaskType=4)) then begin OpenValve(rewardVolume,2); activeReward:=FALSE; end;
-        if not DoubleGoNogo then activeReward:=FALSE;
-      end;
+        if SymmetricRewardMode<>1 then activeReward:=FALSE;
+      end
+      else if (SymmetricRewardMode=4) AND ((TaskType=1) OR (TaskType=3)) then
+        activeReward:=FALSE; // 'exclusive' licks: rewards won't be allowed any more on the other tube
     end;
   //status.text[7]:=('B'+Istr(LickCnt)+'/'+Istr(LickCnt2));
 end;
@@ -2910,6 +2925,7 @@ begin
     delay(floor(del));
 
   until ((LickV<thresh) AND (ref)) OR Visualstim.StopStim;
+  timestart:=TimeGetTime;
   display('Trial');
 end;
 
@@ -2970,6 +2986,7 @@ begin
     display('wait for no lick:'+waitbar);
     visualStim.TestStopStim;
   until (tremain<=0) OR Visualstim.StopStim;
+  timestart:=TimeGetTime;
   display('Trial');
 end;
 
@@ -2990,6 +3007,7 @@ begin
     ok:=NInoclock.Din(Address,dig);
     visualStim.TestStopStim;
   until (dig>0) OR Visualstim.StopStim;
+  timestart:=TimeGetTime;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3264,14 +3282,14 @@ end;
 // Procedure defining what to do in each episode
 procedure DoEpisode;
 var
-  timestart,dd:integer;
+  dd:integer;
 begin
   // Choose the type of trial
   SelectTrialType; // This sets ICond, increments cnt and cntCond, updates TRecord, and updates stim parameters
   
   // Init the detector if necessary?
   VisualStim.RemoveDetectors;
-  if Behavior and ((RewardCriterion=2) OR (RewardCriterion=4)) then
+  if Behavior AND ImmediateReward then
   begin
     InitDetectorReward; // detector for immediate reward
     VisualStim.InstallDetector(detector);
@@ -3314,7 +3332,7 @@ begin
   end;
 
   // Add a delay before the next episode
-  dd := TrialInterval;               // Minimal duration of trial
+  dd := TrialInterval-RefractoryTime;               // Minimal duration of trial
   dd := (timestart+dd)-timeGetTime;  // Remaining time to wait
   if (dd>0) AND (not Visualstim.StopStim) then
   begin
