@@ -2911,7 +2911,7 @@ var
   Address:string;
 begin
   display('wait for fork');
-  Address:=Dev+'/AI1';
+  Address:=Dev+'/AI2';
   thresh:=2;
   del:=20;
   NC:=0;
@@ -2923,7 +2923,7 @@ begin
     if NC>=NREF then ref:=TRUE;
     if LickV<thresh then NC:=0;
     delay(floor(del));
-
+    visualStim.TestStopStim;
   until ((LickV<thresh) AND (ref)) OR Visualstim.StopStim;
   timestart:=TimeGetTime;
   display('Trial');
@@ -3059,7 +3059,7 @@ begin
           case DetectionType of
             1: PhysNum:=1;
             2: PhysNum:=0;
-            3: PhysNum:=1;
+            3: PhysNum:=2;
             4..5: PhysNum:=0;
           end
         else
@@ -3123,7 +3123,7 @@ begin
     case DetectionType of
       1: begin v1.Ymin:=0; v1.Ymax:=5500; end;
       2: begin v1.Ymin:=-10500; v1.Ymax:=10500; end;
-      3: begin v1.Ymin:=0; v1.Ymax:=5500; end;
+      3: begin v1.Ymin:=0; v1.Ymax:=10500; end;
       4: begin v1.Ymin:=-10500; v1.Ymax:=10500; end;
     end
   else
@@ -3267,7 +3267,7 @@ procedure SaveEpReport;
 begin
   // save parameters after first trial rather than at the end of the experiment:
   // that way they will be in the file even if a crash occurs
-  if cnt=NStimPerEp then SaveParametersDatafile;
+  if cnt=1 then SaveParametersDatafile;
   // save some variables for the current trial
   epReport.create;
   epReport.cnt := cnt;
@@ -3334,17 +3334,20 @@ begin
   // Add a delay before the next episode
   dd := TrialInterval-RefractoryTime;               // Minimal duration of trial
   dd := (timestart+dd)-timeGetTime;  // Remaining time to wait
+  visualStim.TestStopStim;
   if (dd>0) AND (not Visualstim.StopStim) then
   begin
     display('wait for some delay');
     delay(dd);
   end;
+  visualStim.TestStopStim;
   if Behavior AND DoPunition AND (PunitionDelay>0) AND (not Visualstim.StopStim) then
   begin
     display('punition delay');    // punishment for false positive
     delay(PunitionDelay);
     dd := dd+PunitionDelay;
   end;
+  visualStim.TestStopStim;
   if (RandomDelay>0) AND (not Visualstim.StopStim) then
   begin
     display('random delay');
