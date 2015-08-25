@@ -1681,7 +1681,23 @@ begin
       AddImage(ImageList.lines[k]);
     end;
     StartTime:=StimDelay/1000;
-    DtOn:=VisualStimDuration/1000;
+    if Vspeed=0 then
+    begin
+     DtOn:=VisualStimDuration/1000;
+     DtOff:=0;
+    end
+    else
+    begin
+     CycleCount:=Floor(VisualStimDuration/1000*Vspeed);
+    //need to repeat the image CycleCount-1 times   
+    for i:=2 to CycleCount-1 do 
+    begin
+        AddImage(ImageList.lines[ImageIdx]);
+    end;   
+     DtOn:=1/60;     //make the shortest possible light pulse (60 Hz is max framerate)
+     DtOff:=(1/Vspeed - DtOn);     //the rest of the cycle is off   
+    end;
+    setSyncPulse(0);
     if NStimPerEp>1 then
     begin
       DtOff:=(TrialInterval-VisualStimDuration)/1000;
