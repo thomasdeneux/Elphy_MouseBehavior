@@ -558,6 +558,7 @@ procedure AssignRecord(var spar:TDBrecord;fieldname:string;valuestr:string);
 var 
   vtype: integer;
 begin
+  if (not ParList.FieldExists(fieldname)) then ErrorDlg('Invalid Parameter: '+fieldname);
   vtype := ParList.ImplicitValue[fieldname];
   case vtype of
     db_boolean: spar.ImplicitValue[fieldname]:=((valuestr='TRUE') OR (valuestr='true'));
@@ -1471,6 +1472,8 @@ begin
   // Update parameter values
   ParamWin.updatevar;
   
+  Randomize;
+  
   // Perform action
   case N of
     // File actions
@@ -1482,7 +1485,7 @@ begin
     // General parameters
     201: RunTheExp;
     203: OpenValve(rewardVolume);
-    204: for i:=1 to LickNumber do begin delay(5000); display(Istr(i)); OpenValve(rewardVolume); end;
+    204: for i:=1 to LickNumber do begin delay(1000+Floor(Random*8000)); display(Istr(i)); OpenValve(rewardVolume); end;
     205: OpenCloseValve;
     206: TestVisualStim(TRUE);
     // Visual parameters
@@ -1855,76 +1858,6 @@ begin
   end; 
 end;
 
-// ZP for DLP photostimulation (disks)
-procedure MakeTwoDisks; 
-var
- i:integer;
- Vfreq:array [0..1] of real;
-
-//quick test:
-//Vx2,Vy2,Vsize2,VLum2: real;
-
-
-begin
-  
- //quick test:
- //Vx2:=0;
- //Vy2:=0;
- //Vsize2:=6;
- //VLum2:=2; 
-  
-  
-for i:=0 to 1 do
-begin    
-  // create each of circle2 (Tdisk object)
-  with circle2[i] do
-  begin
-    create;
-    
-    if i=0 then
-     begin
-      x:=Vx;
-      y:=Vy;
-      dx:=VSize;
-      dy:=VSize;
-      Lum:= VLum;
-     end
-    else  // 2nd disk, the disk that will be common to both stimuli
-     begin
-      x:=Vx2;
-      y:=Vy2;
-      dx:=VSize2;
-      dy:=VSize2;
-      Lum:= VLum2;
-     end;
-  end;
-
-  // create each of stim2 (TOnOff object) and assign a disk to each Tonoff
-  with stim2[i] do
-  begin
-    create;
-    StartTime:=StimDelay/1000; // secondes
-    Vfreq[i]:=Vspeed;
-    if Vfreq[i]=0 then
-    begin
-      DtON:= VisualStimDuration/1000;
-      DtOff:= 0;
-    end
-    else
-    begin
-      DtON:=1/60;           // make the shortest possible light pulse (60Hz is max frequency right now)
-      DtOff:=(1/Vfreq[i]-DtON);     // the rest of the cycle is off
-      CycleCount:=Floor(VisualStimDuration/1000*Vfreq[i]);
-    end;
-    setSyncPulse(0);
-    setVisualObject(circle2[i]);
-    
-    
-  end;
-end;
-
-end;
-
 procedure LoadImages;
 var
   valid:boolean;
@@ -1994,7 +1927,6 @@ begin
     5: MakeLuminanceCircle;
     6: MakeLoomingCircle;    // 7: corresponds to 'none'
     8: MakeOneofTwoRectangles;    //actually squares
-    9: MakeTwoDisks;
   end;
   
 // set current level of DLP LEDs:
@@ -2080,9 +2012,7 @@ end;
 // zp 07052014 - draws 3 crosses on the screen
 procedure CalibDLPImage;
 var
-  x1,y1,s1,x2,y2,s2,x3,y3,s3,k,tmp,tmp2:integer; 
-const
-  eps=0.05;
+  x1,y1,s1,x2,y2,s2,x3,y3,s3,k,tmp:integer; 
 begin
 
   if DoMenu then SaveDefaultMenuParameters; 
@@ -2101,10 +2031,6 @@ x1:=0; y1:=0; // position of first (smallest) cross
 x2:=-10; y2:=10; //position of second cross
 x3:=10; y3:=10; //position of third (biggest) cross
   
-  
-  emptyVisualStim;
-  
-  
   // create the contour (TXYplot object) 
   with plot do
   begin
@@ -2113,66 +2039,46 @@ x3:=10; y3:=10; //position of third (biggest) cross
        AddPolyline;
       with polylines[1] do 
       begin
-        addPoint(x1-eps,y1-s1/2); 
-        addPoint(x1-eps,y1+s1/2);
-        addPoint(x1+eps,y1+s1/2);
-        addPoint(x1+eps,y1-s1/2);
-        addPoint(x1-eps,y1-s1/2);    
+        for k:=0 to s1 do
+          addPoint(x1,y1-s1/2+k); 
       end;  
-      
+    
       AddPolyline; 
       with polylines[2] do  
       begin
-        addPoint(x1-s1/2,y1-eps); 
-        addPoint(x1+s1/2,y1-eps);
-        addPoint(x1+s1/2,y1+eps);
-        addPoint(x1-s1/2,y1+eps);
-        addPoint(x1+s1/2,y1-eps);
+        for k:=0 to s1 do
+          addPoint(x1-s1/2+k,y1);
       end;  
       
        AddPolyline;  
       with polylines[3] do 
       begin
-        addPoint(x2-eps,y2-s2/2); 
-        addPoint(x2-eps,y2+s2/2);
-        addPoint(x2+eps,y2+s2/2);
-        addPoint(x2+eps,y2-s2/2);
-        addPoint(x2-eps,y2-s2/2);  
+        for k:=0 to s2 do
+          addPoint(x2,y2-s2/2+k);
       end; 
       
       AddPolyline;  
       with polylines[4] do 
       begin
-        addPoint(x2-s2/2,y2-eps); 
-        addPoint(x2+s2/2,y2-eps);
-        addPoint(x2+s2/2,y2+eps);
-        addPoint(x2-s2/2,y2+eps);
-        addPoint(x2+s2/2,y2-eps);
+        for k:=0 to s2 do
+          addPoint(x2-s2/2+k,y2);
       end;  
       
              AddPolyline;  
       with polylines[5] do 
       begin
-        addPoint(x3-eps,y3-s3/2); 
-        addPoint(x3-eps,y3+s3/2);
-        addPoint(x3+eps,y3+s3/2);
-        addPoint(x3+eps,y3-s3/2);
-        addPoint(x3-eps,y3-s3/2);
+        for k:=0 to s3 do
+          addPoint(x3,y3-s3/2+k);
       end; 
       
       AddPolyline;  
       with polylines[6] do 
       begin
-        addPoint(x3-s3/2,y3-eps); 
-        addPoint(x3+s3/2,y3-eps);
-        addPoint(x3+s3/2,y3+eps);
-        addPoint(x3-s3/2,y3+eps);
-        addPoint(x3+s3/2,y3-eps);
+        for k:=0 to s3 do
+          addPoint(x3-s3/2+k,y3);
       end;
-      
+    
   end;    
-  
-  status.text[1]:='plot done';
   
   // create the bar (Tbar object) and assign the contour to it
   with bar do
@@ -2187,9 +2093,7 @@ x3:=10; y3:=10; //position of third (biggest) cross
     
   // create stim (TOnOff object)and assign the bar to it
   tmp:=StimDelay;
-  tmp2:=NStimPerEp;
   StimDelay:=300;
-  NStimPerEp:=1;
   
   with stim do
   begin
@@ -2201,17 +2105,11 @@ x3:=10; y3:=10; //position of third (biggest) cross
     setVisualObject(bar);
   end;  
   
-      status.text[2]:='stim created';
-    lcr.SetLedCurrents(255,255,200);
      //////////////
-       status.text[3]:='LED current set';
+  StimDelay:=tmp;
 
   VisualStim.animate;
   if Visualstim.StopStim then break;
-  VisualStim.StopStim:=FALSE;
-    status.text[4]:='VisualStim animated';
-   StimDelay:=tmp;
-  NStimPerEp:=tmp2;
 
 
 end;
