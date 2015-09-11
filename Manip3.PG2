@@ -38,6 +38,7 @@ var
   Vdetect, Vdetect2: Tvector;
   level:TDBRecord; 
   RandomizationVector: TVector;
+  DelayBeforeTrial: integer;
   
   vect,ImpResp,vect2,fft1,fft2,fft3: TVector;
   Go:integer;
@@ -150,7 +151,7 @@ var
   NStim,NStimPerEp,NRepPerBlock: integer; 
   // (timing)
   StimDelay,VisualStimDuration: integer;
-  LickCountingDelay,RewardDelay,RandomDelay,PunitionDelay,RefractoryTime: integer;
+  LickCountingDelay,RewardDelay,RandomDelay,PunitionDelay,RefractoryTime,RandomRefractoryTime: integer;
   TrialInterval: integer;
   // (behavior)
   DetectionType: word;
@@ -296,6 +297,7 @@ begin
   RandomDelay:=0;
   PunitionDelay:=0;
   RefractoryTime:=0;
+  RandomRefractoryTime:=0;
   TrialInterval:=0;
   // (behavior)
   DetectionType:=2;
@@ -394,6 +396,7 @@ begin
   parlist.RandomDelay := db_integer;
   parlist.PunitionDelay := db_integer;
   parlist.RefractoryTime := db_integer;
+  parlist.RandomRefractoryTime := db_integer;
   parlist.TrialInterval := db_integer;
   // (behavior)
   parlist.DetectionType := db_integer;
@@ -494,6 +497,7 @@ begin
     Addline('RandomDelay'+';'+Istr(RandomDelay));
     Addline('PunitionDelay'+';'+Istr(PunitionDelay));
     Addline('RefractoryTime'+';'+Istr(RefractoryTime));
+    Addline('RandomRefractoryTime'+';'+Istr(RandomRefractoryTime));
     Addline('TrialInterval'+';'+Istr(TrialInterval));
     // (behavior)
     Addline('DetectionType'+';'+Istr(DetectionType));
@@ -618,6 +622,7 @@ begin
   if spar.fieldExists('RandomDelay') then RandomDelay:=spar.RandomDelay;
   if spar.fieldExists('PunitionDelay') then PunitionDelay:=spar.PunitionDelay;
   if spar.fieldExists('RefractoryTime') then RefractoryTime:=spar.RefractoryTime;
+  if spar.fieldExists('RandomRefractoryTime') then RandomRefractoryTime:=spar.RandomRefractoryTime;
   if spar.fieldExists('TrialInterval') then TrialInterval:=spar.TrialInterval;
   // (behavior)
   if spar.fieldExists('DetectionType') then DetectionType:=spar.DetectionType;
@@ -770,6 +775,7 @@ begin
   mpar2.RandomDelay:=RandomDelay;
   mpar2.PunitionDelay:=PunitionDelay;
   mpar2.RefractoryTime:=RefractoryTime;
+  mpar2.RandomRefractoryTime:=RandomRefractoryTime;
   mpar2.TrialInterval:=TrialInterval;  
   // (behavior)
   mpar2.DetectionType:=DetectionType;
@@ -846,6 +852,7 @@ begin
   if mpar2.fieldExists('RandomDelay') then RandomDelay:=Floor(mpar2.RandomDelay) else RandomDelay:=0;
   if mpar2.fieldExists('PunitionDelay') then PunitionDelay:=Floor(mpar2.PunitionDelay) else PunitionDelay:=0;
   if mpar2.fieldExists('RefractoryTime') then RefractoryTime:=Floor(mpar2.RefractoryTime) else RefractoryTime:=0;
+  if mpar2.fieldExists('RandomRefractoryTime') then RandomRefractoryTime:=Floor(mpar2.RandomRefractoryTime) else RandomRefractoryTime:=0;
   TrialInterval:=mpar2.TrialInterval;  
   // (behavior)
   DetectionType:=mpar2.DetectionType;
@@ -1375,14 +1382,15 @@ begin
   
     // Timing
     selectPanel('1.2.2');
-    getInteger('Stimulation delay (ms)',StimDelay,5);
-    getInteger('Visual stimulation duration (ms)',VisualStimDuration,5);
-    getInteger('Lick counting delay (ms)',LickCountingDelay,5);
-    getInteger('Reward delay (ms)',RewardDelay,5);
-    getInteger('Min trial interval (ms)',TrialInterval,5);
-    getInteger('Additional random delay (ms)',RandomDelay,5);
-    getInteger('Additional punition delay (ms)',PunitionDelay,5);
     getInteger('Refractory time (ms)',RefractoryTime,5);
+    getInteger('+ random refractory time',RandomRefractoryTime,5);
+    getInteger('Stimulation delay',StimDelay,5);
+    getInteger('Visual stimulation duration',VisualStimDuration,5);
+    getInteger('Lick counting delay',LickCountingDelay,5);
+    getInteger('Reward delay',RewardDelay,5);
+    getInteger('Punition delay',PunitionDelay,5);
+    getInteger('Min trial interval',TrialInterval,5);
+    getInteger('+ random delay',RandomDelay,5);
     
     // Behavior
     selectPanel('1.2.3');
@@ -2903,42 +2911,14 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 // Wait for triggers
-procedure WaitForFork;
-var
-  LickV,thresh,del:real;
-  NREF,NC:integer;
-  ref:boolean;
-  Address:string;
-begin
-  display('wait for fork');
-  Address:=Dev+'/AI2';
-  thresh:=2;
-  del:=20;
-  NC:=0;
-  ref:=FALSE;
-  NREF:=floor(RefractoryTime/del);
-  repeat
-    NInoclock.Ain(Address,1,LickV);
-    if LickV>=thresh then NC:=NC+1;
-    if NC>=NREF then ref:=TRUE;
-    if LickV<thresh then NC:=0;
-    delay(floor(del));
-    visualStim.TestStopStim;
-  until ((LickV<thresh) AND (ref)) OR Visualstim.StopStim;
-  timestart:=TimeGetTime;
-  display('Trial');
-end;
-
-procedure WaitForNoLick;
+procedure WaitFixedTime(msg:string;WaitTime:integer);
 var
   LickV,LickThresholdUser,thresh,del,RefreshTime,tbar:real;
   t0:longint;
-  NREFRE,NC0,tremain:integer;
-  //lastlick:integer;
+  tremain:integer;
   Address,Address2:string;
   waitbar:string[20];
 begin
-  display('wait for no lick');
   Address:=Dev+'/AI0';
   if SymmetricBehavior then Address2:=Dev+'/AI1';
   if DetectionType=2 then 
@@ -2950,24 +2930,99 @@ begin
   thresh:=(Vbase+LickThresholdUser)/1000;
   status.text[4]:='Vbase=' + Rstr(Vbase,5,2);
   del:=10;
-  t0:=TimeGetTime;
-  tbar:=TimeGetTime;
-  NC0:=0;
-  NREFRE:=floor(1000/del);
-  WaitVect.create(5,1,NREFRE);  
-  //lastlick:=0;
+  t0:=TimeGetTime;   // t0 marks the last time the counter was reinitialized
+  tbar:=TimeGetTime; // tbar marks the last time the waitbar was shifted left by one unit
   waitbar:='00000000000000000000'; // ridiculous way to initialize a 20-character string!!
   repeat
     delay(floor(del));
-    tremain:=RefractoryTime-(TimeGetTime-t0);
-    while (TimeGetTime-tbar)>(RefractoryTime/20) do
+    tremain:=WaitTime-(TimeGetTime-t0);
+    while (TimeGetTime-tbar)>(WaitTime/20) do
     begin
-      tbar := tbar+(RefractoryTime/20);
-      //for i:=0 to 18 do waitbar[20-i]:=waitbar[19-i];
+      tbar := tbar+(WaitTime/20);
       for i:=1 to 19 do waitbar[i]:=waitbar[i+1];
       waitbar[20]:='*';
     end;
-    //display('wait for no lick: ['+Istr(lastlick)+'] '+Rstr(tremain/1000,5,1));
+    NInoclock.Ain(Address,1,LickV);
+    if ((DetectionType=2) AND (LickV<thresh)) OR ((DetectionType=4) AND (LickV>thresh)) then waitbar[20]:='1';
+    if SymmetricBehavior then
+    begin
+      NInoclock.Ain(Address2,1,LickV);
+      if ((DetectionType=2) AND (LickV<thresh)) OR ((DetectionType=4) AND (LickV>thresh)) then waitbar[20]:='2';
+    end;
+    display(msg+': '+waitbar);
+    visualStim.TestStopStim;
+  until (tremain<=0) OR Visualstim.StopStim;
+end;
+
+procedure WaitForDelay;
+begin
+  if (DelayBeforeTrial>0) then WaitFixedTime('wait some delay',DelayBeforeTrial);
+end;
+
+procedure WaitForFork;
+var
+  LickV,thresh,del:real;
+  NREF,NC:integer;
+  ref:boolean;
+  Address:string;
+begin
+  if (DelayBeforeTrial>0) then WaitFixedTime('wait some delay',DelayBeforeTrial);
+  display('wait for fork');
+  Address:=Dev+'/AI2';
+  thresh:=2;
+  del:=20;
+  NC:=0;
+  ref:=FALSE;
+  NREF:=floor((RefractoryTime + Random*RandomRefractoryTime)/del);
+  repeat
+    NInoclock.Ain(Address,1,LickV);
+    if LickV>=thresh then NC:=NC+1;
+    if NC>=NREF then ref:=TRUE;
+    if LickV<thresh then NC:=0;
+    delay(floor(del));
+    visualStim.TestStopStim;
+  until ((LickV<thresh) AND (ref)) OR Visualstim.StopStim;
+  display('Trial');
+  timestart:=TimeGetTime;
+end;
+
+procedure WaitForNoLick;
+var
+  LickV,LickThresholdUser,thresh,del,RefreshTime,tbar:real;
+  t0:longint;
+  NREFRE,NC0,tremain,WaitTime:integer;
+  //lastlick:integer;
+  Address,Address2:string;
+  waitbar:string[20];
+begin
+  if (DelayBeforeTrial>0) then WaitFixedTime('wait some delay',DelayBeforeTrial);
+  Address:=Dev+'/AI0';
+  if SymmetricBehavior then Address2:=Dev+'/AI1';
+  if DetectionType=2 then 
+    LickThresholdUser:=LickThresholdBottom 
+  else if DetectionType=4 then
+    LickThresholdUser:=LickThresholdTop
+  else
+    ErrorDlg('Wrong detection type encountered in WaitForNoLick');
+  thresh:=(Vbase+LickThresholdUser)/1000;
+  status.text[4]:='Vbase=' + Rstr(Vbase,5,2);
+  del:=10;
+  t0:=TimeGetTime;   // t0 marks the last time the counter was reinitialized
+  tbar:=TimeGetTime; // tbar marks the last time the waitbar was shifted left by one unit
+  NC0:=0;
+  NREFRE:=floor(1000/del);
+  WaitTime := RefractoryTime + Floor(Random*RandomRefractoryTime);
+  WaitVect.create(5,1,NREFRE);  
+  waitbar:='00000000000000000000'; // ridiculous way to initialize a 20-character string!!
+  repeat
+    delay(floor(del));
+    tremain:=WaitTime-(TimeGetTime-t0);
+    while (TimeGetTime-tbar)>(WaitTime/20) do
+    begin
+      tbar := tbar+(WaitTime/20);
+      for i:=1 to 19 do waitbar[i]:=waitbar[i+1];
+      waitbar[20]:='*';
+    end;
     NInoclock.Ain(Address,1,LickV);
     NC0:=NC0+1; WaitVect[NC0]:=LickV;
     if ((DetectionType=2) AND (LickV<thresh)) OR ((DetectionType=4) AND (LickV>thresh)) then begin t0:=TimeGetTime; waitbar[20]:='1'; end;
@@ -2983,11 +3038,11 @@ begin
           thresh:=(Vbase+LickThresholdUser)/1000;
           NC0:=0;
       end;
-    display('wait for no lick:'+waitbar);
+    display('wait for no lick: '+waitbar);
     visualStim.TestStopStim;
   until (tremain<=0) OR Visualstim.StopStim;
-  timestart:=TimeGetTime;
   display('Trial');
+  timestart:=TimeGetTime;
 end;
 
 procedure WaitForMicroscope;
@@ -2995,6 +3050,7 @@ var
   dig,ok:integer;
   Address:string;
 begin
+  if (DelayBeforeTrial>0) then WaitFixedTime('wait some delay',DelayBeforeTrial);
   display('wait for microscope');
   Address:=Dev+'/PORT1/LINE0';
   // first get a 0 bit (make sure previous acquisition has finished)
@@ -3007,6 +3063,7 @@ begin
     ok:=NInoclock.Din(Address,dig);
     visualStim.TestStopStim;
   until (dig>0) OR Visualstim.StopStim;
+  display('Trial');
   timestart:=TimeGetTime;
 end;
 
@@ -3041,6 +3098,7 @@ begin
       2: VisualStim.OnStartAnimate1:=WaitForFork;
       3: VisualStim.OnStartAnimate1:=WaitForMicroscope;
       4: VisualStim.OnStartAnimate1:=WaitForNoLick;
+      else VisualStim.OnStartAnimate1:=WaitForDelay;
     end;
   end;
   MakeDumBar(EpisodeDuration);
@@ -3317,7 +3375,7 @@ begin
   if (NStimPerEp>1) and (not Auditory) then begin cnt:=cnt+(NStimPerEp-1); cntCond:=cntCond+(NStimPerEp-1); end;
 
   // Start acquisition
-  display('Visualstim.animate');
+  display('Trial');
   timestart := timeGetTime;
   VisualStim.animate;       // Launch the visual stimulation immediately
 
@@ -3332,27 +3390,11 @@ begin
   end;
 
   // Add a delay before the next episode
-  dd := TrialInterval-RefractoryTime;               // Minimal duration of trial
-  dd := (timestart+dd)-timeGetTime;  // Remaining time to wait
-  visualStim.TestStopStim;
-  if (dd>0) AND (not Visualstim.StopStim) then
-  begin
-    display('wait for some delay');
-    delay(dd);
-  end;
-  visualStim.TestStopStim;
-  if Behavior AND DoPunition AND (PunitionDelay>0) AND (not Visualstim.StopStim) then
-  begin
-    display('punition delay');    // punishment for false positive
-    delay(PunitionDelay);
-    dd := dd+PunitionDelay;
-  end;
-  visualStim.TestStopStim;
-  if (RandomDelay>0) AND (not Visualstim.StopStim) then
-  begin
-    display('random delay');
-    delay(Floor(Random*RandomDelay));
-  end;
+  dd := TrialInterval-RefractoryTime;  // Minimal duration of trial
+  dd := (timestart+dd)-timeGetTime;    // Remaining time to wait
+  dd := dd + Floor(Random*RandomDelay);
+  if (dd>0) then DelayBeforeTrial:=dd else DelayBeforeTrial:=0; // Next trial will start by waiting this amount of tim
+  if Behavior AND DoPunition AND (PunitionDelay>0) then WaitFixedTime('punition delay',PunitionDelay); 
   display('');
   
   // Save some trial-specific information
@@ -3408,6 +3450,7 @@ if VisualStim.OpenDataFile then
       end;
     
     // Episodes loop
+    DelayBeforeTrial:=0; // No delay before the first trial
     repeat
       DoEpisode;                        // Launch episode
     until (cnt=MaxTrialNumber) or (rewardTotal>=MaxReward) or Visualstim.StopStim;  // Note that cnt is incremented in SelectTrialType function
