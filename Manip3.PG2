@@ -570,7 +570,7 @@ var
   vtype: integer;
 begin
   // Some old parameters do not exist any more!!
-  if (fieldname='DoMask') or (fieldname='rewardSlope') or (fieldname='DoubleGoNogo') then
+  if (fieldname='DoMask') or (fieldname='rewardSlope') or (fieldname='DoubleGoNogo') or (fieldname='RewardCriterion') then
     ErrorDlg('Parameter name "'+fieldname+'" does not exist any more')
   else
   begin
@@ -3063,7 +3063,7 @@ begin
             4..5: PhysNum:=0;
           end
         else
-          PhysNum:=4; // nothing to record -> record audio stim, just for fun
+          PhysNum:=4; // nothing to record -> record audio stim, that can be usefull
         UnitY:='mV';
         setScale(0,32767,0,10000);
         DownSamplingFactor:= 1;
