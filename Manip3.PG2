@@ -2028,7 +2028,12 @@ end;
 // zp 07052014 - draws 3 crosses on the screen
 procedure CalibDLPImage;
 var
-  x1,y1,s1,x2,y2,s2,x3,y3,s3,k,tmp:integer; 
+  //x1,y1,s1,x2,y2,s2,x3,y3,s3,k,tmp:integer; 
+  x1,y1,s1,x2,y2,s2,x3,y3,s3,k,tmp,tmp2:integer; 
+  const
+  eps=0.05;
+
+
 begin
 
   if DoMenu then SaveDefaultMenuParameters; 
@@ -2046,6 +2051,9 @@ s1:=4; s2:=8; s3:=12; //size of crosses
 x1:=0; y1:=0; // position of first (smallest) cross
 x2:=-10; y2:=10; //position of second cross
 x3:=10; y3:=10; //position of third (biggest) cross
+
+  emptyVisualStim;
+
   
   // create the contour (TXYplot object) 
   with plot do
@@ -2055,46 +2063,94 @@ x3:=10; y3:=10; //position of third (biggest) cross
        AddPolyline;
       with polylines[1] do 
       begin
-        for k:=0 to s1 do
-          addPoint(x1,y1-s1/2+k); 
+        //for k:=0 to s1 do
+         // addPoint(x1,y1-s1/2+k); 
+              addPoint(x1-eps,y1-s1/2); 
+        addPoint(x1-eps,y1+s1/2);
+        addPoint(x1+eps,y1+s1/2);
+        addPoint(x1+eps,y1-s1/2);
+        addPoint(x1-eps,y1-s1/2);    
+
+      
+      
       end;  
     
       AddPolyline; 
       with polylines[2] do  
       begin
-        for k:=0 to s1 do
-          addPoint(x1-s1/2+k,y1);
+        //for k:=0 to s1 do
+         // addPoint(x1-s1/2+k,y1);
+              addPoint(x1-s1/2,y1-eps); 
+        addPoint(x1+s1/2,y1-eps);
+        addPoint(x1+s1/2,y1+eps);
+        addPoint(x1-s1/2,y1+eps);
+        addPoint(x1+s1/2,y1-eps);
+   
       end;  
       
        AddPolyline;  
       with polylines[3] do 
       begin
-        for k:=0 to s2 do
-          addPoint(x2,y2-s2/2+k);
+       // for k:=0 to s2 do
+         // addPoint(x2,y2-s2/2+k);
+         
+        addPoint(x2-eps,y2-s2/2); 
+        addPoint(x2-eps,y2+s2/2);
+        addPoint(x2+eps,y2+s2/2);
+        addPoint(x2+eps,y2-s2/2);
+        addPoint(x2-eps,y2-s2/2);  
+
+         
       end; 
       
       AddPolyline;  
       with polylines[4] do 
       begin
-        for k:=0 to s2 do
-          addPoint(x2-s2/2+k,y2);
+        //for k:=0 to s2 do
+         // addPoint(x2-s2/2+k,y2);
+         
+        addPoint(x2-s2/2,y2-eps); 
+        addPoint(x2+s2/2,y2-eps);
+        addPoint(x2+s2/2,y2+eps);
+        addPoint(x2-s2/2,y2+eps);
+        addPoint(x2+s2/2,y2-eps);
+
+         
       end;  
       
              AddPolyline;  
       with polylines[5] do 
       begin
-        for k:=0 to s3 do
-          addPoint(x3,y3-s3/2+k);
+        //for k:=0 to s3 do
+         // addPoint(x3,y3-s3/2+k);
+         
+        addPoint(x3-eps,y3-s3/2); 
+        addPoint(x3-eps,y3+s3/2);
+        addPoint(x3+eps,y3+s3/2);
+        addPoint(x3+eps,y3-s3/2);
+        addPoint(x3-eps,y3-s3/2);
+
+         
+         
       end; 
       
       AddPolyline;  
       with polylines[6] do 
       begin
-        for k:=0 to s3 do
-          addPoint(x3-s3/2+k,y3);
+        //for k:=0 to s3 do
+          //addPoint(x3-s3/2+k,y3);
+        addPoint(x3-s3/2,y3-eps); 
+        addPoint(x3+s3/2,y3-eps);
+        addPoint(x3+s3/2,y3+eps);
+        addPoint(x3-s3/2,y3+eps);
+        addPoint(x3+s3/2,y3-eps);
+
       end;
     
   end;    
+  
+    status.text[1]:='plot done';
+
   
   // create the bar (Tbar object) and assign the contour to it
   with bar do
@@ -2108,8 +2164,14 @@ x3:=10; y3:=10; //position of third (biggest) cross
   end;   
     
   // create stim (TOnOff object)and assign the bar to it
-  tmp:=StimDelay;
+  //tmp:=StimDelay;
+  //StimDelay:=300;
+  
+    tmp:=StimDelay;
+  tmp2:=NStimPerEp;
   StimDelay:=300;
+  NStimPerEp:=1;
+
   
   with stim do
   begin
@@ -2121,11 +2183,23 @@ x3:=10; y3:=10; //position of third (biggest) cross
     setVisualObject(bar);
   end;  
   
+  
+        status.text[2]:='stim created';
+    lcr.SetLedCurrents(255,255,200);
+
      //////////////
-  StimDelay:=tmp;
+//  StimDelay:=tmp;
+         status.text[3]:='LED current set';
+
 
   VisualStim.animate;
   if Visualstim.StopStim then break;
+  
+    VisualStim.StopStim:=FALSE;
+    status.text[4]:='VisualStim animated';
+   StimDelay:=tmp;
+  NStimPerEp:=tmp2;
+
 
 
 end;
