@@ -3198,7 +3198,7 @@ end;
 // The procedure that intializes the program
 procedure Opening_Procedure;
 begin         
-  // randomize seed for RNG
+  // randomize seed for RNG                         
   Randomize; 
   
   // Status bar (create it first, so that it can be used to display debugging information for the next initializations)
@@ -3325,7 +3325,7 @@ procedure SaveEpReport;
 begin
   // save parameters after first trial rather than at the end of the experiment:
   // that way they will be in the file even if a crash occurs
-  if cnt=1 then SaveParametersDatafile;
+  if cnt=NStimPerEp then SaveParametersDatafile;
   // save some variables for the current trial
   epReport.create;
   epReport.cnt := cnt;
