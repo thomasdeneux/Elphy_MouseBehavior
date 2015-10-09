@@ -574,7 +574,7 @@ var
   vtype: integer;
 begin
   // Some old parameters do not exist any more!!
-  if (fieldname='DoMask') or (fieldname='rewardSlope') or (fieldname='DoubleGoNogo') then
+  if (fieldname='DoMask') or (fieldname='rewardSlope') or (fieldname='DoubleGoNogo') or (fieldname='RewardCriterion') then
     ErrorDlg('Parameter name "'+fieldname+'" does not exist any more')
   else
   begin
@@ -3134,7 +3134,7 @@ begin
             4..5: PhysNum:=0;
           end
         else
-          PhysNum:=4; // nothing to record -> record audio stim, just for fun
+          PhysNum:=4; // nothing to record -> record audio stim, that can be usefull
         UnitY:='mV';
         setScale(0,32767,0,10000);
         DownSamplingFactor:= 1;
@@ -3211,7 +3211,7 @@ end;
 // The procedure that intializes the program
 procedure Opening_Procedure;
 begin         
-  // randomize seed for RNG
+  // randomize seed for RNG                         
   Randomize; 
   
   // Status bar (create it first, so that it can be used to display debugging information for the next initializations)
@@ -3338,7 +3338,7 @@ procedure SaveEpReport;
 begin
   // save parameters after first trial rather than at the end of the experiment:
   // that way they will be in the file even if a crash occurs
-  if cnt=1 then SaveParametersDatafile;
+  if cnt=NStimPerEp then SaveParametersDatafile;
   // save some variables for the current trial
   epReport.create;
   epReport.cnt := cnt;
