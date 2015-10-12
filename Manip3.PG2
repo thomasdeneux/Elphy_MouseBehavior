@@ -148,7 +148,7 @@ var
   NStim,NStimPerEp,NRepPerBlock: integer; 
   // (timing)
   StimDelay,VisualStimDuration: integer;
-  LickCountingDelay,RewardDelay,RandomDelay,PunitionDelay,RefractoryTime: integer;
+  LickCountingDelay,RewardDelay,RandomDelay,PunitionDelay,RefractoryTime,RandomRefractoryTime: integer;
   TrialInterval: integer;
   // (behavior)
   DetectionType,RewardCriterion: word;
@@ -296,6 +296,7 @@ begin
   RandomDelay:=0;
   PunitionDelay:=0;
   RefractoryTime:=0;
+  RandomRefractoryTime:=0;
   TrialInterval:=0;
   // (behavior)
   DetectionType:=2;
@@ -392,6 +393,7 @@ begin
   parlist.RandomDelay := db_integer;
   parlist.PunitionDelay := db_integer;
   parlist.RefractoryTime := db_integer;
+  parlist.RandomRefractoryTime := db_integer;
   parlist.TrialInterval := db_integer;
   // (behavior)
   parlist.DetectionType := db_integer;
@@ -487,6 +489,7 @@ begin
     Addline('RandomDelay'+';'+Istr(RandomDelay));
     Addline('PunitionDelay'+';'+Istr(PunitionDelay));
     Addline('RefractoryTime'+';'+Istr(RefractoryTime));
+    Addline('RandomRefractoryTime'+';'+Istr(RandomRefractoryTime));
     Addline('TrialInterval'+';'+Istr(TrialInterval));
     // (behavior)
     Addline('DetectionType'+';'+Istr(DetectionType));
@@ -601,6 +604,7 @@ begin
   if spar.fieldExists('RandomDelay') then RandomDelay:=spar.RandomDelay;
   if spar.fieldExists('PunitionDelay') then PunitionDelay:=spar.PunitionDelay;
   if spar.fieldExists('RefractoryTime') then RefractoryTime:=spar.RefractoryTime;
+  if spar.fieldExists('RandomRefractoryTime') then RandomRefractoryTime:=spar.RandomRefractoryTime;
   if spar.fieldExists('TrialInterval') then TrialInterval:=spar.TrialInterval;
   // (behavior)
   if spar.fieldExists('DetectionType') then DetectionType:=spar.DetectionType;
@@ -736,6 +740,7 @@ begin
   mpar2.RandomDelay:=RandomDelay;
   mpar2.PunitionDelay:=PunitionDelay;
   mpar2.RefractoryTime:=RefractoryTime;
+  mpar2.RandomRefractoryTime:=RandomRefractoryTime;
   mpar2.TrialInterval:=TrialInterval;  
   // (behavior)
   mpar2.DetectionType:=DetectionType;
@@ -808,6 +813,7 @@ begin
   if mpar2.fieldExists('RandomDelay') then RandomDelay:=Floor(mpar2.RandomDelay) else RandomDelay:=0;
   if mpar2.fieldExists('PunitionDelay') then PunitionDelay:=Floor(mpar2.PunitionDelay) else PunitionDelay:=0;
   if mpar2.fieldExists('RefractoryTime') then RefractoryTime:=Floor(mpar2.RefractoryTime) else RefractoryTime:=0;
+  if mpar2.fieldExists('RandomRefractoryTime') then RandomRefractoryTime:=Floor(mpar2.RandomRefractoryTime) else RandomRefractoryTime:=0;
   TrialInterval:=mpar2.TrialInterval;  
   // (behavior)
   DetectionType:=mpar2.DetectionType;
@@ -1312,14 +1318,15 @@ begin
     
       // Timing
       selectPanel('1.2.2');
+      getInteger('Refractory time (ms)',RefractoryTime,5);
+      getInteger('+ random refractory time (ms)',RandomRefractoryTime,5);
       getInteger('Stimulation delay (ms)',StimDelay,5);
       getInteger('Visual stimulation duration (ms)',VisualStimDuration,5);
       getInteger('Lick counting delay (ms)',LickCountingDelay,5);
       getInteger('Reward delay (ms)',RewardDelay,5);
+      getInteger('Punition delay (ms)',PunitionDelay,5);
       getInteger('Min trial interval (ms)',TrialInterval,5);
-      getInteger('Additional random delay (ms)',RandomDelay,5);
-      getInteger('Additional punition delay (ms)',PunitionDelay,5);
-      getInteger('Refractory time (ms)',RefractoryTime,5);
+      getInteger('+ random delay (ms)',RandomDelay,5);
     
       // Behavior
       selectPanel('1.2.3');
@@ -2684,7 +2691,7 @@ begin
   del:=20;
   NC:=0;
   ref:=FALSE;
-  NREF:=floor(RefractoryTime/del);
+  NREF:=floor((RefractoryTime+Random*RandomRefractoryTime)/del);
   repeat
     Ni.Ain(Address,1,LickV);
     if LickV>=thresh then NC:=NC+1;
@@ -2717,7 +2724,7 @@ begin
   del:=10;
   NC:=0;  NC0:=0;
   ref:=FALSE;
-  NREF:=floor(RefractoryTime/del);
+  NREF:=floor((RefractoryTime+Random*RandomRefractoryTime)/del);
   NREFRE:=floor(1000/del);
   WaitVect.create(5,1,NREFRE);
   repeat
