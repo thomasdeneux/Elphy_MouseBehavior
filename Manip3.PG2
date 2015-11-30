@@ -2876,6 +2876,13 @@ begin
       PhysNum:=0;
       BitNum:=7;
     end;
+    
+      with Channels[2] do
+    begin
+      ChannelType:=TO_digiBit;
+      PhysNum:=0;
+      BitNum:=6;
+    end;
 
     // Init visual stimulation - this also sets acquisition
     // It is important that this commands occurs here, after we have declared
@@ -2894,6 +2901,13 @@ begin
       pulseDur :=10 ;
       vector[1].fill1(1,soundStart,soundStart+pulseDur);  // Ce pulse est envoyé sur PFI1, il déclenche le signal analogique
     end;
+    
+    
+    // Fill the output vector of the external ephys trigger
+    vector[2].fill(0);
+    pulseDur :=1000 ;
+    vector[2].fill1(1,0,pulseDur);  // Ce pulse est envoyé dans le systeme Intan
+
 
   end;
 
