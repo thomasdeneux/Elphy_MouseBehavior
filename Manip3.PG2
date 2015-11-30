@@ -2866,7 +2866,7 @@ begin
   with Stimulator do
   begin
     BufferCount:=1;
-    ChannelCount:=1;
+    ChannelCount:=2;
     setByProg:=true;
 
     // Trigger for sound
