@@ -967,6 +967,7 @@ begin
   end;
   FullPar2Memo;
   Datafile0.AppendObject(ppar2);
+  Datafile0.AppendObject(TPrebuild);
   Datafile0.AppendObject(ImageList);
   Datafile0.AppendObject(SoundList);
 end;
@@ -3356,9 +3357,6 @@ end;
 
 procedure SaveEpReport;
 begin
-  // save parameters after first trial rather than at the end of the experiment:
-  // that way they will be in the file even if a crash occurs
-  if cnt=NStimPerEp then SaveParametersDatafile;
   // save some variables for the current trial
   epReport.create;
   epReport.cnt := cnt;
@@ -3486,6 +3484,9 @@ if VisualStim.OpenDataFile then
     DelayBeforeTrial:=0; // No delay before the first trial
     repeat
       DoEpisode;                        // Launch episode
+      // save parameters after first trial rather than at the end of the experiment:
+      // that way they will be in the file even if a crash occurs
+      if cnt=NStimPerEp then SaveParametersDatafile;
     until (cnt=MaxTrialNumber) or (rewardTotal>=MaxReward) or Visualstim.StopStim;  // Note that cnt is incremented in SelectTrialType function
     VisualStim.StopStim:=FALSE;
 
