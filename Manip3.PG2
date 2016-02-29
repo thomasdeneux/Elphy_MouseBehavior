@@ -2957,7 +2957,7 @@ begin
   if SymmetricBehavior then Address2:=Dev+'/AI1';
   if DetectionType=2 then 
     LickThresholdUser:=LickThresholdBottom 
-  else if DetectionType=4 then
+  else if (DetectionType=4) OR (DetectionType=3) then
     LickThresholdUser:=LickThresholdTop
   else
     ErrorDlg('Wrong detection type encountered in WaitForNoLick');
@@ -3000,7 +3000,6 @@ var
   ref:boolean;
   Address:string;
 begin
-  if (DelayBeforeTrial>0) then WaitFixedTime('wait some delay',DelayBeforeTrial);
   display('wait for fork');
   Address:=Dev+'/AI2';
   thresh:=2;
@@ -3029,12 +3028,11 @@ var
   Address,Address2:string;
   waitbar:string[20];
 begin
-  if (DelayBeforeTrial>0) then WaitFixedTime('wait some delay',DelayBeforeTrial);
   Address:=Dev+'/AI0';
   if SymmetricBehavior then Address2:=Dev+'/AI1';
   if DetectionType=2 then 
     LickThresholdUser:=LickThresholdBottom 
-  else if DetectionType=4 then
+  else if (DetectionType=4) OR (DetectionType=3) then
     LickThresholdUser:=LickThresholdTop
   else
     ErrorDlg('Wrong detection type encountered in WaitForNoLick');
@@ -3084,7 +3082,6 @@ var
   dig,ok:integer;
   Address:string;
 begin
-  if (DelayBeforeTrial>0) then WaitFixedTime('wait some delay',DelayBeforeTrial);
   display('wait for microscope');
   Address:=Dev+'/PORT1/LINE0';
   // first get a 0 bit (make sure previous acquisition has finished)
@@ -3132,7 +3129,6 @@ begin
       2: VisualStim.OnStartAnimate1:=WaitForFork;
       3: VisualStim.OnStartAnimate1:=WaitForMicroscope;
       4: VisualStim.OnStartAnimate1:=WaitForNoLick;
-      else VisualStim.OnStartAnimate1:=WaitForDelay;
     end;
   end;
   MakeDumBar(EpisodeDuration);
@@ -3407,7 +3403,8 @@ begin
 
   // Start acquisition
   display('Trial');
-  timestart := timeGetTime;
+  WaitForDelay;             // Wait time needed for last trial to meet the minimal duration
+  timestart := timeGetTime; // If the program will wait for a trigger before really starting, this value will be updated to the actual start time
   VisualStim.animate;       // Launch the visual stimulation immediately
 
   // Reward
