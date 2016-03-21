@@ -5,6 +5,7 @@
 
 const
   Sound_Sampling_Frequency= 192000;    // Hz
+  Opto_Sampling_Frequency= 1000; 
   //Lick_Sampling_Frequency = 1000;      // Hz
 var
   plot, maskPlot: TXYplot;
@@ -25,15 +26,17 @@ var
   LickCnt, LickCnt2, Licked: integer; // lick count and correct lick channel for immediate reward
   epReport: TDBRecord; // report some values related to the last episode
   vfilt, vfilt2: Tvector;
-  NIanalog, NInoclock, NIcounter: TNIinterface;
+  NIanalog, NIanalog2, NInoclock, NIcounter: TNIinterface;
   ParamWin: Tdialog;
   OkParamWin: boolean; // tells whether ParamWin has been initialized already
   FileList: Tmemo;
   SoundList,ImageList: Tmemo;
   FileNameHandle: integer;
   Sounds: array [1..10000] of TVector;
+  Optos: array [1..10000] of TVector;
   LoadedSounds: array [1..10000] of TVector;
   MaxSoundDuration: real;
+  MaxOptoDuration: real;
   detector, detector2: Tdetector;
   Vdetect, Vdetect2: Tvector;
   level:TDBRecord; 
@@ -145,7 +148,7 @@ var
   // Experiment parameters
   // (general)
   TriggerType: word;
-  ContinuousRec, Behavior, Auditory, Visual: boolean; 
+  ContinuousRec, Behavior, Auditory, Visual, Opto: boolean; 
   MaxTrialNumber: integer;
   AutoFileName: boolean;
   NStim,NStimPerEp,NRepPerBlock: integer; 
@@ -182,6 +185,9 @@ var
   SoundListFile: string;
   SoundIdx: integer;
   Equalization: boolean;
+  
+  // (opto stim)
+  OPer, ODuration, OPulseDur, ODelay: real;
   
   // "StimGen" parameters
   // (general)
@@ -282,6 +288,7 @@ begin
   ContinuousRec:=FALSE;
   Behavior:=TRUE;
   Auditory:=TRUE;
+  Opto:=TRUE;
   Visual:=TRUE;
   NStim:=2;
   NStimPerEp:=1;
@@ -349,6 +356,11 @@ begin
   SoundListFile:='';
   SoundIdx:=0;
   Equalization:=TRUE;
+  // (opto stim)
+  ODuration:=100;
+  ODelay:=1000;
+  OPer:=500;
+  OPulseDur:=5;
   
   // StimGen parameters
   // (general)
@@ -382,6 +394,7 @@ begin
   parlist.ContinuousRec := db_boolean;
   parlist.Behavior := db_boolean;
   parlist.Auditory := db_boolean;
+  parlist.Opto := db_boolean;
   parlist.Visual := db_boolean;
   parlist.NStim := db_integer; 
   parlist.NStimPerEp := db_integer; 
@@ -447,6 +460,12 @@ begin
   parlist.SoundListFile := db_string;
   parlist.SoundIdx := db_integer;
   parlist.Equalization := db_boolean;
+  // (opto stim)
+  parlist.ODuration := db_real;
+  parlist.ODelay := db_real;
+  parlist.OPer := db_real;
+  parlist.OPulseDur := db_real;
+  
 end;
 
 // Init the stim table
@@ -483,6 +502,7 @@ begin
     Addline('ContinuousRec'+';'+Bstr(ContinuousRec));
     Addline('Behavior'+';'+Bstr(Behavior));
     Addline('Auditory'+';'+Bstr(Auditory));
+    Addline('Opto'+';'+Bstr(Opto));
     Addline('Visual'+';'+Bstr(Visual));
     Addline('NStim'+';'+Istr(NStim)); 
     Addline('NStimPerEp'+';'+Istr(NStimPerEp)); 
@@ -548,6 +568,11 @@ begin
     AddLine('SoundListFile'+';'+SoundListFile);
     AddLine('SoundIdx'+';'+Istr(SoundIdx));  
     Addline('Equalization'+';'+Bstr(Equalization));
+    // (opto stim)
+    Addline('ODuration'+';'+Rstr(ODuration,1,5));
+    Addline('ODelay'+';'+Rstr(ODelay,1,5));
+    Addline('OPer'+';'+Rstr(OPer,1,5));
+    Addline('OPulseDur'+';'+Rstr(OPulseDur,1,5));
     
     // Multiple values in StimTable
     for j:=1 to StimTable.ColCount do
@@ -608,6 +633,7 @@ begin
   if spar.fieldExists('ContinuousRec') then ContinuousRec:=spar.ContinuousRec;
   if spar.fieldExists('Behavior') then Behavior:=spar.Behavior;
   if spar.fieldExists('Auditory') then Auditory:=spar.Auditory;
+  if spar.fieldExists('Opto') then Opto:=spar.Opto;
   if spar.fieldExists('Visual') then Visual:=spar.Visual;
   if spar.fieldExists('NStim') then NStim:=spar.NStim; 
   if spar.fieldExists('NStimPerEp') then NStimPerEp:=spar.NStimPerEp; 
@@ -673,6 +699,11 @@ begin
   if spar.fieldExists('SoundListFile') then SoundListFile:=spar.SoundListFile; 
   if spar.fieldExists('SoundIdx') then SoundIdx:=spar.SoundIdx;
   if spar.fieldExists('Equalization') then Equalization:=spar.Equalization;
+  // (opto stim)
+  if spar.fieldExists('ODuration') then ODuration:=spar.ODuration;
+  if spar.fieldExists('ODelay') then ODelay:=spar.ODelay;
+  if spar.fieldExists('OPer') then OPer:=spar.OPer;
+  if spar.fieldExists('OPulseDur') then OPulseDur:=spar.OPulseDur;
 end;
 
 // Load parameters from TMemo object
@@ -761,6 +792,7 @@ begin
   mpar2.TriggerType:=TriggerType;
   mpar2.Behavior:=Behavior;
   mpar2.Auditory:=Auditory;
+  mpar2.Opto:=Opto;
   mpar2.Visual:=Visual;
   mpar2.NStim:=NStim;
   mpar2.NStimPerEp:=NStimPerEp;
@@ -809,6 +841,12 @@ begin
   mpar2.SInterval:=SInterval;
   mpar2.SFreq:=SFreq;
   mpar2.SLevelDB:=SLevelDB;
+  // (opto stim)
+  mpar2.ODuration:=ODuration;
+  mpar2.ODelay:=ODelay;
+  mpar2.OPer:=OPer;
+  mpar2.OPulseDur:=OPulseDur;
+  
   // StimGen parameters
   // (general)
   mpar2.ProtocolType:=ProtocolType;
@@ -837,6 +875,7 @@ begin
   // (general)
   if mpar2.fieldExists('TriggerType') then TriggerType:=mpar2.TriggerType else if mpar2.DetectionType=3 then TriggerType:=2 else TriggerType:=1;
   if mpar2.fieldExists('Behavior') then Behavior:=mpar2.Behavior else Behavior:=TRUE;
+  if mpar2.fieldExists('Opto') then Opto:=mpar2.Opto else Opto:=TRUE;
   Auditory:=mpar2.Auditory;
   Visual:=mpar2.Visual;
   if mpar2.fieldExists('NStim') then NStim:=mpar2.NStim else NStim:=mpar2.NIntermediateStim+2;
@@ -887,6 +926,11 @@ begin
   if mpar2.fieldExists('SFreq') then SFreq:=mpar2.SFreq else SFreq:=8000;
   if mpar2.fieldExists('SLevelDB') then SLevelDB:=mpar2.SLevelDB else if mpar2.SLevel<>0 then SLevelDB:=100+Ln(mpar2.SLevel)/ln(10)*20 else SLevelDB:=70;
   if mpar2.fieldExists('Equalization') then Equalization:=mpar2.Equalization else Equalization:=TRUE;
+  // (audio stim)
+  if mpar2.fieldExists('ODuration') then ODuration:=mpar2.ODuration else ODuration:=100;
+  if mpar2.fieldExists('ODelay') then ODelay:=mpar2.ODelay else ODelay:=1000;
+  if mpar2.fieldExists('OPulseDur') then OPulseDur:=mpar2.OPulseDur else OPulseDur:=5;
+  if mpar2.fieldExists('OPer') then OPer:=mpar2.OPer else OPer:=500;
   
   // StimGen parameters
   // (general)
@@ -1224,8 +1268,8 @@ begin
   // checks for several stim per episode
   if NStimPerEp>1 then
   begin
-    if (not Auditory) and (not Visual) then
-      CheckCurrentSettings:=ERR('Neither Visual nor Auditory is selected!');
+    if (not Auditory) and (not Visual) and (not Opto) then
+      CheckCurrentSettings:=ERR('Neither Visual,Opto nor Auditory is selected!');
     if Behavior then
       CheckCurrentSettings:=ERR('Several Stim per Episode is valid only for passive experiments.');
     if DoRepeatCondition then
@@ -1372,7 +1416,7 @@ begin
     create;
     dividePanel('1',3,FALSE);
     dividePanel('1.1',2,TRUE);
-    splitPanel('1.2','General|Timing|Behavior|Visual Stim|Audio Stim|Notes');
+    splitPanel('1.2','General|Timing|Behavior|Visual Stim|Audio Stim|Opto Stim|Notes');
 
     // Files menu
     selectPanel('1.1.1');
@@ -1404,6 +1448,7 @@ begin
     getBoolean('Behavior', Behavior);
     getBoolean('Visual', Visual);
     getBoolean('Auditory', Auditory);
+    getBoolean('Opto', Opto);
   
     // Timing
     selectPanel('1.2.2');
@@ -1482,9 +1527,23 @@ begin
     end;
     getCommandA('Test sounds', Go,402);
     
-    // Notes
+    // Opto parameters
     selectPanel('1.2.6');
+    if DoMenu then
+    begin
+      getReal('Pulse duration (ms)',OPulseDur,5,3);
+      getReal('Total duration (ms)',ODuration,5,1);
+      getReal('Delay (ms)',ODelay,5,1);
+      getReal('Period (ms)',OPer,5,1);
+
+    end;
+    getCommandA('Test Opto', Go,501);
+    
+    // Notes
+    selectPanel('1.2.7');
     getMemo('',ParametersNotes,30,15,0);
+    
+    
 
     // Main commands
     selectPanel('1.3');
@@ -1557,6 +1616,7 @@ procedure ChooseImages;forward;
 procedure TestVisualStim(doAudio:boolean);forward;
 procedure ChooseSounds;forward;
 procedure TestSounds;forward;
+procedure TestOpto;forward;
 procedure OpenValve(volume:real;side:smallint);forward;
 procedure OpenCloseValve(side:smallint);forward;
 procedure CalibDLPImage;forward;
@@ -1603,6 +1663,8 @@ begin
     // Sound parameters
     401: begin ChooseSounds; ParChg:=true; end;
     402: TestSounds;
+    // Opto parameters
+    501: TestOpto;
     // Otherwise, some parameter has probably been changed
     else if N<>106 then ParChg:=true;
   end;
@@ -2599,6 +2661,89 @@ begin
   VisualStim.StopStim:=FALSE;
 end;
 
+{$EDIT OptoStim}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////// Opto stimulation ////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+// Initialize Opto stim
+procedure initOpto;
+var
+  fstart,fend,frac,time:real;
+  OLevel:real;
+  nS,nT,nP:integer;
+begin
+  display('Initializing opto');
+
+  // compute sounds (or copy loaded sounds) and memorize max sound duration
+  MaxOptoDuration:=0;
+  for i:=1 to NStim do
+  begin
+    // update parameters for condition i
+    Record2Par(StimTable[i]); 
+    // compute the opto stim
+
+        // create sound
+        OLevel := 1;
+        nS := Floor(Opto_Sampling_Frequency*(ODuration+ODelay)/1000);
+        nT := Floor(Opto_Sampling_Frequency*OPer/1000);
+        nP := Floor(ODuration/OPer);
+        Optos[i].clone(Stimulator.vector[2]);
+        // fill it
+        Optos[i].fill(0);   
+        for k:=0 to nP-1 do
+        begin
+             Optos[i].fill1(OLevel,k*OPer+ODelay,k*OPer+OPulseDur+ODelay-1);
+        end;   
+
+
+    // update max sound duration
+    MaxOptoDuration:=max(MaxOptoDuration,ODuration);
+
+    // make sure the vector finishes with a zero
+    Optos[i][Optos[i].Iend]:=0;
+
+  end;
+
+  display('');
+end;  
+
+
+// Deliver the sound stimulus
+procedure setOptoStim(immediateStart:boolean);
+begin
+  with Stimulator do
+  begin
+    for k:=vector[2].Istart to vector[2].Iend do
+    begin
+       vector[2][k]:=Optos[ICond][k];
+    end;
+  end;
+end;
+
+
+// Test Opto
+procedure TestOpto;
+begin                        
+  if DoMenu then SaveDefaultMenuParameters; 
+  
+  Initialize_AcqAndTriggs;
+  initOpto;
+
+  status.text[3]:=('Test Opto');
+
+  for i:= 1 to  NStim  do  
+  begin
+    if i>1 then delay(round(MaxOptoDuration+300) );  
+    ICond:=i; 
+    Record2Par(StimTable[ICond]);
+    setOptoStim(TRUE);
+    VisualStim.animate; 
+    if Visualstim.StopStim then break;
+  end;
+  VisualStim.StopStim:=FALSE;
+end;
+
 {$EDIT Reward}
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// Reward routines /////////////////////////////////
@@ -2980,13 +3125,19 @@ begin
   begin
     create;
     // detector events are initiated by a timer
-    if Auditory then
+    if Auditory or Opto then
       if Visual then 
-        StimDuration:=max(MaxSoundDuration,VisualStimDuration+RewardDelay) 
-      else 
-        StimDuration:=MaxSoundDuration
+        StimDuration:=max(MaxOptoDuration,max(MaxSoundDuration,VisualStimDuration+RewardDelay))
+      else
+        if(not(Opto)) then
+           StimDuration:=MaxSoundDuration
+        else
+           if(not(Auditory)) then
+             StimDuration:=MaxOptoDuration
+           else
+             StimDuration:=max(MaxOptoDuration,MaxSoundDuration)
     else
-      StimDuration:=VisualStimDuration+RewardDelay;
+    StimDuration:=VisualStimDuration+RewardDelay;
     initTimer(v1,TrialInterval,StimDelay+StimDuration+50);
     AddEvent(DetectorEventStimUpdate,0);
   end;
@@ -3166,7 +3317,7 @@ end;
 // Procedure for Episodes recording
 procedure Initialize_AcqAndTriggs;
 var
-  SoundStart, EpisodeDuration: integer;
+  SoundStart, OptoStart, EpisodeDuration: integer;
 begin
 
   // Set general parameters of acquisition
@@ -3237,7 +3388,7 @@ begin
   with Stimulator do
   begin
     BufferCount:=1;
-    ChannelCount:=1;
+    ChannelCount:=2;
     setByProg:=true;
 
     // Trigger for sound
@@ -3247,6 +3398,14 @@ begin
       PhysNum:=0;
       BitNum:=7;
     end;
+    
+    // Opto stim
+    with Channels[2] do
+    begin
+      ChannelType:=TO_digiBit;
+      PhysNum:=0;
+      BitNum:=6;
+    end;
 
     // Init visual stimulation - this also sets acquisition
     // It is important that this commands occurs here, after we have declared
@@ -3255,13 +3414,13 @@ begin
     VisualStim.InitAcqParams; 
 
     // Fill the output vector of the sound trigger
-    vector[1].fill(0);
+    vector[1].fill(0); vector[2].fill(0); 
     for i:=1 to NStimPerEp do
     begin
       soundStart := StimDelay+(i-1)*TrialInterval+Round(SDelay);
       vector[1].fill1(1,soundStart,soundStart+10);  // Ce pulse est envoyé sur PFI1, il déclenche le signal analogique
-    end;
-
+    end; 
+    
   end;
 
   // Set display range of acquisition
@@ -3453,6 +3612,8 @@ begin
   if Visual then setVisualStim;           // Refresh the visual stimulation
   display('set audio stim');
   if Auditory then setAudioStim(FALSE);      // Refresh and load the auditory stimulation
+  display('set opto stim');
+  if Opto then setOptoStim(FALSE);      // Refresh and load the auditory stimulation
 
   // If NStimPerEp>1, cnt will be updated by the detector BUT the detector is 
   // installed ONLY if there is Auditory stimulation (it is best not to use 
@@ -3521,6 +3682,7 @@ if VisualStim.OpenDataFile then
     // Pre-compute sounds
     if Visual then initVisual;
     if Auditory then initSounds;
+    if Opto then initOpto;
 
     // Estimate baseline voltage
     if Behavior then
