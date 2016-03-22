@@ -835,6 +835,7 @@ begin
   mpar2.VOn:=VOn;
   mpar2.VInterval:=VInterval;
   mpar2.VLum:=VLum;
+  mpar2.NFlash:=NFlash;
   // (audio stim)
   mpar2.SDuration:=SDuration;
   mpar2.SDelay:=SDelay;
@@ -919,6 +920,7 @@ begin
   if mpar2.fieldExists('VOn') then VOn:=mpar2.VOn else VOn:=0;
   if mpar2.fieldExists('VInterval') then VInterval:=mpar2.VInterval else VInterval:=0;
   VLum:=mpar2.VLum;
+  if mpar2.fieldExists('NFlash') then NFlash:=mpar2.NFlash else NFlash:=0;
   // (audio stim)
   if mpar2.fieldExists('SDuration') then SDuration:=mpar2.SDuration else SDuration:=100;
   if mpar2.fieldExists('SDelay') then SDelay:=mpar2.SDelay else SDelay:=0;
@@ -3137,7 +3139,7 @@ begin
            else
              StimDuration:=max(MaxOptoDuration,MaxSoundDuration)
     else
-    StimDuration:=VisualStimDuration+RewardDelay;
+      StimDuration:=VisualStimDuration+RewardDelay;
     initTimer(v1,TrialInterval,StimDelay+StimDuration+50);
     AddEvent(DetectorEventStimUpdate,0);
   end;
@@ -3195,7 +3197,7 @@ begin
       if ((DetectionType=2) AND (LickV<thresh)) OR ((DetectionType=4) AND (LickV>thresh)) then waitbar[20]:='2';
     end;
     display(msg+': '+waitbar);
-    visualStim.TestStopStim;
+    visualStim.TestStopStim; // note that STOP button is not activated anyway when WaitFixedTime is executed outside an acquisition
   until (tremain<=0) OR Visualstim.StopStim;
 end;
 
