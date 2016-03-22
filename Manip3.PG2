@@ -3,6 +3,7 @@
 ///////////////////////////// Variables other than parameters //////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+    
 const
   Sound_Sampling_Frequency= 192000;    // Hz
   //Lick_Sampling_Frequency = 1000;      // Hz
@@ -1493,6 +1494,7 @@ begin
     201: RunTheExp;
     203: OpenValve(rewardVolume);
     204: for i:=1 to LickNumber do begin delay(1000+Floor(Random*8000)); display(Istr(i)); OpenValve(rewardVolume); end;
+    // Random*8000: every 5s on avg; Random*24000: every 13s on avg; Random*48000: every 25s on avg
     205: OpenCloseValve;
     206: TestVisualStim(TRUE);
     // Visual parameters
@@ -1711,8 +1713,8 @@ begin
       CycleCount:=NStimPerEp;
     end;
     setVisualObject(bitmap);
-  end; 
-end;
+   end; 
+  end;
 
 {procedure ChangeImage;
 begin
