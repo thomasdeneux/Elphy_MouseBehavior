@@ -2249,7 +2249,7 @@ begin
         valid:=FileExists(str);
         if valid then
         begin
-          display('load sound from '+str);
+          display('load sound '+Istr(i)+' from '+str);
           addLine(str);
           LoadedSounds[i].create(t_single,1,1);
           LoadedSounds[i].LoadFromWaveFile(str, 1);
