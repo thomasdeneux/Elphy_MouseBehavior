@@ -293,7 +293,7 @@ begin
   // Global parameters
   // (general)
   TriggerType:=1;
-  Behavior:=TRUE;
+  Behavior:=FALSE;
   Auditory:=TRUE;
   Opto:=FALSE;
   Visual:=TRUE;
@@ -367,7 +367,7 @@ begin
   NBeep:=1;
   SoundListFile:='';
   SoundIdx:=0;
-  Equalization:=TRUE;
+  Equalization:=FALSE;
   // (opto stim)
   ODuration:=100;
   ODelay:=1000;
@@ -1497,6 +1497,7 @@ begin
     getBoolean('Visual', Visual);
     getBoolean('Auditory', Auditory);
     getBoolean('Opto', Opto);
+    getBoolean('LCR', DoLCR);
   
     // Timing
     selectPanel('1.2.2');
