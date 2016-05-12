@@ -1118,6 +1118,9 @@ begin
   
   // Redisplay the menu (because many controls do not appear if we are not in Menu mode)
   DesignMenu; 
+  
+  // Update screen background luminance
+  StimScreen.BackGroundLum:=BackgroundLuminance;
 end;
 
 
