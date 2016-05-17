@@ -2514,7 +2514,12 @@ var
   SDirName:string;
 begin
   valid := FileExists(SoundListFile);
-  if valid then
+  if not valid then
+  begin
+    MessageBox('Sound list file "'+SoundListFile+'" could not be found.');
+    SoundListFile:='';
+  end
+  else
   begin
     SDirName:=extractFilePath(SoundListFile);
     fid:=1;
@@ -2539,14 +2544,13 @@ begin
           ReadlnText(fid,str);
         end
         else
-          str:='';
+        begin
+          MessageBox('Sound file "'+str+'" does not exist.');
+          SoundListFile:='';
+          break;
+        end;
       end;
     end;
-  end;
-  if not valid then
-  begin
-    SoundListFile:='';
-    MessageBox('Invalid sound list file, or invalid sound file(s)');
   end;
 end;
 
@@ -3250,6 +3254,7 @@ begin
              StimDuration:=max(MaxOptoDuration,MaxSoundDuration)
     else
       StimDuration:=VisualStimDuration+RewardDelay;
+    status.text[3] := 'StimDuration='+Rstr(StimDuration,6,1);
     initTimer(v1,TrialInterval,StimDelay+StimDuration+50);
     AddEvent(DetectorEventStimUpdate,0);
   end;
