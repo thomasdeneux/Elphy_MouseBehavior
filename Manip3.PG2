@@ -147,7 +147,7 @@ end;
 // Additionally, there are a few local parameters which are specific to each machine 
 // (e.g. name of the acquisition card) and are saved in a file named
 // Manip3_LocalParameters.param.
-  
+      
 
 var
   // Experiment parameters
@@ -1539,7 +1539,7 @@ begin
       selectPanel('1.2.4.2');
       dividePanel('1.2.4.2',2,TRUE);
       selectPanel('1.2.4.2.1');
-      getInteger('Background Luminance',BackgroundLuminance,5);
+      getIntegerA('Background Luminance',BackgroundLuminance,5,305);
       getstringList1('Mask',MaskList,MaskType);
       getReal('S+ parameter',alpha1,5,3);
       getReal('S+ parameter 2',beta1,5,3);
@@ -1716,6 +1716,7 @@ begin
     302: TestVisualStim(FALSE);
     303: CalibDLPImage;
     304: if DoLCR then LEDsOff;
+    305: begin StimScreen.BackGroundLum:=BackgroundLuminance; ParChg:=true; end;
     // Sound parameters
     401: begin ChooseSounds; ParChg:=true; end;
     402: TestSounds;
