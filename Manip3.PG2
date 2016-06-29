@@ -147,7 +147,7 @@ end;
 // Additionally, there are a few local parameters which are specific to each machine 
 // (e.g. name of the acquisition card) and are saved in a file named
 // Manip3_LocalParameters.param.
-  
+      
 
 var
   // Experiment parameters
@@ -1118,6 +1118,9 @@ begin
   
   // Redisplay the menu (because many controls do not appear if we are not in Menu mode)
   DesignMenu; 
+  
+  // Update screen background luminance
+  StimScreen.BackGroundLum:=BackgroundLuminance;
 end;
 
 
@@ -1536,7 +1539,7 @@ begin
       selectPanel('1.2.4.2');
       dividePanel('1.2.4.2',2,TRUE);
       selectPanel('1.2.4.2.1');
-      getInteger('Background Luminance',BackgroundLuminance,5);
+      getIntegerA('Background Luminance',BackgroundLuminance,5,305);
       getstringList1('Mask',MaskList,MaskType);
       getReal('S+ parameter',alpha1,5,3);
       getReal('S+ parameter 2',beta1,5,3);
@@ -1713,6 +1716,7 @@ begin
     302: TestVisualStim(FALSE);
     303: CalibDLPImage;
     304: if DoLCR then LEDsOff;
+    305: begin StimScreen.BackGroundLum:=BackgroundLuminance; ParChg:=true; end;
     // Sound parameters
     401: begin ChooseSounds; ParChg:=true; end;
     402: TestSounds;
@@ -2513,7 +2517,12 @@ var
   SDirName:string;
 begin
   valid := FileExists(SoundListFile);
-  if valid then
+  if not valid then
+  begin
+    MessageBox('Sound list file "'+SoundListFile+'" could not be found.');
+    SoundListFile:='';
+  end
+  else
   begin
     SDirName:=extractFilePath(SoundListFile);
     fid:=1;
@@ -2538,14 +2547,13 @@ begin
           ReadlnText(fid,str);
         end
         else
-          str:='';
+        begin
+          MessageBox('Sound file "'+str+'" does not exist.');
+          SoundListFile:='';
+          break;
+        end;
       end;
     end;
-  end;
-  if not valid then
-  begin
-    SoundListFile:='';
-    MessageBox('Invalid sound list file, or invalid sound file(s)');
   end;
 end;
 
@@ -3252,6 +3260,7 @@ begin
              StimDuration:=max(MaxOptoDuration,MaxSoundDuration)
     else
       StimDuration:=VisualStimDuration+RewardDelay;
+    status.text[3] := 'StimDuration='+Rstr(StimDuration,6,1);
     initTimer(v1,TrialInterval,StimDelay+StimDuration+50);
     AddEvent(DetectorEventStimUpdate,0);
   end;
