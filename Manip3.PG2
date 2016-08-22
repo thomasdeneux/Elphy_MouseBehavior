@@ -1950,6 +1950,7 @@ begin
     else if NFlash>1 then
     begin
       // several appearances of the same image
+      if VisualStimDuration<VOn+NFlash*VInterval then ErrorDlg('Visual stim duration is not as long as the flashing stimulus, please increase it.');
       DtOn:=VOn;
       DtOff:=VInterval-VOn;
       CycleCount:=NFlash;
@@ -2019,6 +2020,7 @@ begin
   end;
 
   // create anim (Ttrajectory object) to animate the circle 
+  if VisualStimDuration<VOn+NFlash*VInterval then ErrorDlg('Visual stim duration is not as long as the flashing stimulus, please increase it.');
   nframe:=Round((VOn+VInterval)/1000/VisualStim.TFrame);
   nOn:=Ceil(VOn/1000/VisualStim.TFrame);
   status.text[4]:=Rstr(VisualStim.TFrame)+'-'+Istr(nframe)+'-'+Istr(nOn);
