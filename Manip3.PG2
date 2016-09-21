@@ -1880,6 +1880,8 @@ end;
 procedure MakeBitmap;
 begin
   // create image (TVSbitmap object)
+  if ImageIdx>ImageList.count then
+    ErrorDlg('Image index ('+Istr(ImageIdx)+') exceeds number of images ('+Istr(ImageList.count)+').');
   with bitmap do
   begin
     create;
@@ -1929,6 +1931,7 @@ begin
     StartTime:=StimDelay/1000;
     if VSpeed<>0 then
     begin
+      // 60Hz for opto-genetics
       if NStimPerEp>1 then ErrorDlg('in MakeBitmap: NStimPerEp>0 (several images per episode) is not compatible with VSpeed<>0 (flashing the image)');
       CycleCount:=Floor(VisualStimDuration/1000*VSpeed);
       //need to repeat the image CycleCount-1 times   
@@ -1937,14 +1940,25 @@ begin
       DtOn:=1/60;     //make the shortest possible light pulse (60 Hz is max framerate)
       DtOff:=(1/Vspeed - DtOn);     //the rest of the cycle is off   
     end
+    else if NStimPerEp>1 then
+    begin
+      // several stim per episode (i.e. change the image between image appearances) 
+      DtOn:=VisualStimDuration/1000;      
+      DtOff:=(TrialInterval-VisualStimDuration)/1000;
+      CycleCount:=NStimPerEp;
+    end
+    else if NFlash>1 then
+    begin
+      // several appearances of the same image
+      if VisualStimDuration<VOn+NFlash*VInterval then ErrorDlg('Visual stim duration is not as long as the flashing stimulus, please increase it.');
+      DtOn:=VOn;
+      DtOff:=VInterval-VOn;
+      CycleCount:=NFlash;
+    end
     else
     begin
-      DtOn:=VisualStimDuration/1000;
-      if NStimPerEp>1 then
-      begin
-        DtOff:=(TrialInterval-VisualStimDuration)/1000;
-        CycleCount:=NStimPerEp;
-      end;
+      // simple image on
+      DtOn:=VisualStimDuration/1000;      
     end;
     setSyncPulse(0);
     setVisualObject(bitmap);
@@ -2006,6 +2020,7 @@ begin
   end;
 
   // create anim (Ttrajectory object) to animate the circle 
+  if VisualStimDuration<VOn+NFlash*VInterval then ErrorDlg('Visual stim duration is not as long as the flashing stimulus, please increase it.');
   nframe:=Round((VOn+VInterval)/1000/VisualStim.TFrame);
   nOn:=Ceil(VOn/1000/VisualStim.TFrame);
   status.text[4]:=Rstr(VisualStim.TFrame)+'-'+Istr(nframe)+'-'+Istr(nOn);
@@ -3164,23 +3179,26 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 {
+Analog inputs:
 AI0 lick
 AI1 second lick
 AI2 IR fork
 AI4 feedback audio stimulation
 
+Analog outputs:
 AO0 audio stim
 
+Digital inputs/outputs:
 CO0 reward (linked to DO9)
 CO1 second reward (linked to DO10)
 
 DO7 trigger for audio (-> goes to PFI1)
 DO6 optogenetic stim
-DO9 reward
-DO10 second reward
 
 PFI0 2P trigger
 PFI1 trigger for audio
+PFI9 reward
+PFI10 second reward
 }
 
 ////////////////////////////////////////////////////////////////////////////////
