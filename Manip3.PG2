@@ -2252,6 +2252,7 @@ begin
   shiftgrat[1].free;
   shiftgrat[2].free;
   anim.free;
+  bstream.free;
 end;
 
 // Build and assign the visual stimulation
