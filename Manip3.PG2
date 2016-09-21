@@ -215,7 +215,7 @@ var
   StimTable: TDBtable; // Values of parameters that change in different conditions
   ParList: TDBrecord;  // All the parameters and their types
   spar: TDBrecord;     // An intermediary for when reading .csv file
-  ProtocolList,DetectionList,TriggerList, SymmetricRewardModeList: Tmemo;       // Various lists
+  ProtocolList,DetectionList,TriggerList,SymmetricRewardModeList,TaskTypeList: Tmemo;       // Various lists
   VisualProtocols,AuditoryProtocols,VisualStimuli,AuditoryStimuli: Tmemo;
   MaskList: Tmemo;
   AllListMemo: Tmemo; // summarizes the correspondence between list items and numbers
@@ -1261,6 +1261,19 @@ begin
   end;
   AllListMemo.addLine('AuditoryProtocols');
   for i:=1 to AuditoryProtocols.count do AllListMemo.addLine(Istr(i)+';'+AuditoryProtocols.lines[i]);
+
+  with TaskTypeList do
+  begin
+    create;
+    addLine('S+');
+    addLine('S-');
+    addLine('catch (behaves as S+)');
+    addLine('catch (behaves as S-)');
+    addLine('catch (neutral, not rewarded)');
+    addLine('catch (neutral, rewarded regardless of lick)');
+  end;
+  AllListMemo.addLine('TaskTypeList');
+  for i:=1 to TaskTypeList.count do AllListMemo.addLine(Istr(i)+';'+TaskTypeList.lines[i]);
 
   AllListMemo.SaveToFile(ListMemoFile);
 end;
@@ -3070,13 +3083,13 @@ begin
   else // Go-NoGo
     if ((TaskType=1) OR (TaskType=3)) AND (w>= LickNumber) then rewardChannel:=1;
     
-  // Give the reward if correct answer or free trial or reactivate trial
-  isFreeTrial := (cnt<=NFreeTrials) OR ((NTrialsReactivate>0) AND (rewardChannel=0) AND (CondRepeatNoLick>=NTrialsReactivate));
+  // Give the reward if correct answer or free trial, or reactivate trial, or rewarded catch trial
+  isFreeTrial := (cnt<=NFreeTrials) OR ((NTrialsReactivate>0) AND (rewardChannel=0) AND (CondRepeatNoLick>=NTrialsReactivate)) OR (TaskType=6);
   if (rewardChannel>0) AND activeReward then 
     OpenValve(Floor(rewardVolume),rewardChannel)
   else if isFreeTrial AND activeReward then
   begin      
-    if (TaskType=1) OR (TaskType=3) then 
+    if (TaskType=1) OR (TaskType=3) OR (TaskType=6) then 
       begin OpenValve(Floor(rewardVolume),1); CondRepeatNoLick:=0; end    
     else if SymmetricBehavior AND ((TaskType=2) OR (TaskType=4)) then
       begin OpenValve(Floor(rewardVolume),2); CondRepeatNoLick:=0; end;    
