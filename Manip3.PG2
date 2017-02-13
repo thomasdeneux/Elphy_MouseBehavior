@@ -230,7 +230,7 @@ const
   //DefaultMenuParameterFile = 'C:\Users\THomas\Desktop\default.param'; 
   //LocalParameterFile = 'C:\Users\THomas\Desktop\Manip3_LocalParameters.param'; 
   DefaultMenuParameterFile = 'Y:\Behavior\Elphy\parameters\default.param';
-  LocalParameterFile = 'E:\Users\Thomas\Elphy\Manip3_LocalParameters.param';
+  LocalParameterFile = 'D:\Elphy Programs\Manip3_LocalParameters.param';
   ListMemoFile = 'Y:\Behavior\Elphy\parameters\LISTS_MEMO.csv';
 
 var
@@ -670,7 +670,7 @@ begin
   if spar.fieldExists('AutoFileName') then AutoFileName:=spar.AutoFileName;
   // (timing)
   if spar.fieldExists('StimDelay') then StimDelay:=spar.StimDelay;
-  if spar.fieldExists('RandomStimDelay') then RandomStimDelay:=spar.RandomStimDelay else RandomStimDelay:=0;
+  if spar.fieldExists('RandomStimDelay') then RandomStimDelay:=spar.RandomStimDelay;
   if spar.fieldExists('VisualStimDuration') then VisualStimDuration:=spar.VisualStimDuration;
   if spar.fieldExists('LickCountingDelay') then LickCountingDelay:=spar.LickCountingDelay;
   if spar.fieldExists('RewardDelay') then RewardDelay:=spar.RewardDelay;
@@ -3462,6 +3462,24 @@ end;
 ////////////////////////// Acquisition /////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+// Prepare sound trigger (needs to be called at the beginning of every episode 
+// if there is a randomized Stim Delay)
+procedure PrepareSoundTrigger;
+var
+  soundStart: integer;
+begin
+  with Stimulator do
+  begin
+    vector[1].fill(0);
+    for i:=1 to NStimPerEp do
+    begin
+      soundStart := CurrentStimDelay+(i-1)*TrialInterval+Round(SDelay);
+      status.text[3]:='SoundStart='+Istr(soundStart);
+      vector[1].fill1(1,soundStart,soundStart+10);  // Ce pulse est envoyé sur PFI1, il déclenche le signal analogique
+    end;
+  end;
+end; 
+
 
 // Procedure for Episodes recording
 procedure Initialize_AcqAndTriggs;
@@ -3472,9 +3490,9 @@ begin
   // Set general parameters of acquisition
   if (NStimPerEp>1) then
     // note: the initial checks ensure that TrialInterval >= VisualStimDuration+RewardDelay+100ms
-    EpisodeDuration := CurrentStimDelay+NStimPerEp*TrialInterval
+    EpisodeDuration := StimDelay+RandomStimDelay+NStimPerEp*TrialInterval
   else
-    EpisodeDuration := CurrentStimDelay+VisualStimDuration+RewardDelay; // seconds
+    EpisodeDuration := StimDelay+RandomStimDelay+VisualStimDuration+RewardDelay; // seconds
   with VisualStim do
   begin
     // EphysPeriod is the period chosen for acquiring electrophysiology data (v3). Other channels are adjusted with DownSamplingFactor such
@@ -3565,12 +3583,7 @@ begin
     VisualStim.InitAcqParams;
 
     // Fill the output vector of the sound trigger
-    vector[1].fill(0);
-    for i:=1 to NStimPerEp do
-    begin
-      soundStart := CurrentStimDelay+(i-1)*TrialInterval+Round(SDelay);
-      vector[1].fill1(1,soundStart,soundStart+10);  // Ce pulse est envoyé sur PFI1, il déclenche le signal analogique
-    end; 
+    PrepareSoundTrigger;
     
     // The optogenetic stimulation vector will be filled later by the setOptoStim function
     vector[2].fill(0);                
@@ -3769,7 +3782,11 @@ begin
   display('set visual stim');
   if Visual then setVisualStim;           // Refresh the visual stimulation
   display('set audio stim');
-  if Auditory then setAudioStim(FALSE);      // Refresh and load the auditory stimulation
+  if Auditory then 
+  begin
+    if RandomStimDelay>0 then PrepareSoundTrigger; // If random stim delay, the sound trigger should be reset for every trial
+    setAudioStim(FALSE);      // Refresh and load the auditory stimulation
+  end;
   display('set opto stim');
   if Opto then setOptoStim(FALSE);      // Refresh and load the auditory stimulation
 
