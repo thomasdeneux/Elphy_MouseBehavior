@@ -3151,7 +3151,7 @@ begin
     if activeReward AND (LickCnt>=LickNumber) then
     begin
       if Licked=0 then Licked:=1; // remember which channel was first licked
-      if ((TaskType=1) OR (TaskType=3)) then begin OpenValve(rewardVolume,1); activeReward:=FALSE; end;
+      if ((TaskType=1) OR (TaskType=3) OR (TaskType=6)) then begin OpenValve(rewardVolume,1); activeReward:=FALSE; end;
       if SymmetricRewardMode<>1 then activeReward:=FALSE; // rewards won't be allowed any more on the other tube, except if 2ble GoNogo mode
     end
     else if (SymmetricRewardMode=4) AND ((TaskType=2) OR (TaskType=4)) then
