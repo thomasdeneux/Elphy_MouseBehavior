@@ -227,10 +227,9 @@ var
   
   // Parameter files
 const
-  //DefaultMenuParameterFile = 'C:\Users\THomas\Desktop\default.param'; 
-  //LocalParameterFile = 'C:\Users\THomas\Desktop\Manip3_LocalParameters.param'; 
   DefaultMenuParameterFile = 'Y:\Behavior\Elphy\parameters\default.param';
-  LocalParameterFile = 'D:\Elphy Programs\Manip3_LocalParameters.param';
+  //LocalParameterFile = 'D:\Elphy Programs\Manip3_LocalParameters.param';
+  LocalParameterFile = 'Manip3_LocalParameters.param';
   ListMemoFile = 'Y:\Behavior\Elphy\parameters\LISTS_MEMO.csv';
 
 var

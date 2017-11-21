@@ -215,3 +215,6 @@ pip-log.txt
 .mr.developer.cfg
 PlayAndRecordSound.PG2
 PlayAndRecordSound_config.GFC
+*.PGC64
+github_icon.ico
+Manip3_LocalParameters.param
