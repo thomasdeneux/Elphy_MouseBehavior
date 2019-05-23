@@ -3789,7 +3789,7 @@ begin
   display('set audio stim');
   if Auditory then 
   begin
-    if RandomStimDelay>0 then PrepareSoundTrigger; // If random stim delay, the sound trigger should be reset for every trial
+    if (RandomStimDelay>0) or (SDelayRandom>0) then PrepareSoundTrigger; // If random stim delay, the sound trigger should be reset for every trial
     setAudioStim(FALSE);      // Refresh and load the auditory stimulation
   end;
   display('set opto stim');
