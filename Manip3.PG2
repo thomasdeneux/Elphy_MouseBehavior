@@ -44,7 +44,7 @@ var
   Vdetect, Vdetect2: Tvector;
   level:TDBRecord; 
   RandomizationVector: TVector;
-  DelayBeforeTrial, CurrentStimDelay: integer;
+  DelayBeforeTrial, CurrentStimDelay, SoundDelay: integer;
   
   vect,ImpResp,vect2,fft1,fft2,fft3: TVector;
   Go:integer;
@@ -159,11 +159,11 @@ var
   NStim,NStimPerEp,NRepPerBlock: integer; 
   // (timing)
   StimDelay,RandomStimDelay,VisualStimDuration: integer;
-  LickCountingDelay,RewardDelay,RandomDelay,PunitionDelay,RefractoryTime,RandomRefractoryTime: integer;
+  LickCountingDelay,CueRewardDelay,RewardDelay,RandomDelay,PunitionDelay,RefractoryTime,RandomRefractoryTime: integer;
   TrialInterval: integer;
   // (behavior)
   DetectionType: word;
-  SymmetricBehavior, ImmediateReward: boolean;
+  SymmetricBehavior, ImmediateReward, DoCueImmediateReward: boolean;
   SymmetricRewardMode: word; //1=2blGoNogo, 2=Diff., 3=Exclusive
   DoRepeatCondition: boolean; // repeat condition if response is not correct
   DoRandomize: boolean;
@@ -227,9 +227,6 @@ var
   
   // Parameter files
 const
-  //DefaultMenuParameterFile = 'Y:\Behavior\Elphy\parameters\default.param';
-  //LocalParameterFile = 'D:\Elphy Programs\Manip3_LocalParameters.param';
-  //ListMemoFile = 'Y:\Behavior\Elphy\parameters\LISTS_MEMO.csv';
   DefaultMenuParameterFile = 'E:\Users\Thomas\Elphy\dataroot\Elphy_MouseBehavior\default.param';
   LocalParameterFile = 'E:\Users\Thomas\Elphy\dataroot\Elphy_MouseBehavior\Manip3_LocalParameters.param';
   ListMemoFile = 'E:\Users\Thomas\Elphy\dataroot\Elphy_MouseBehavior\LISTS_MEMO.csv';
@@ -321,6 +318,7 @@ begin
   SymmetricRewardMode:=2; // lick diff.
   DoRandomize:=True;
   ImmediateReward:=False;
+  DoCueImmediateReward:=False;
   TaskType:=1;
   LickThresholdTop:=4000;
   LickThresholdBottom:=2500;
@@ -439,6 +437,7 @@ begin
   parlist.SymmetricRewardMode := db_integer;
   parlist.DoRandomize := db_boolean;
   parlist.ImmediateReward := db_boolean;
+  parlist.DoCueImmediateReward := db_boolean;
   parlist.TaskType := db_integer;
   parlist.LickThresholdTop := db_real;
   parlist.LickThresholdBottom := db_real;
@@ -553,6 +552,7 @@ begin
     Addline('SymmetricRewardMode'+';'+Istr(SymmetricRewardMode));
     Addline('DoRandomize'+';'+Bstr(DoRandomize));
     Addline('ImmediateReward'+';'+Bstr(ImmediateReward));
+    Addline('DoCueImmediateReward'+';'+Bstr(DoCueImmediateReward));
     Addline('TaskType'+';'+Istr(TaskType));
     Addline('LickThresholdTop'+';'+Rstr(LickThresholdTop,1,5));
     Addline('LickThresholdBottom'+';'+Rstr(LickThresholdBottom,1,5));
@@ -690,6 +690,7 @@ begin
   if spar.fieldExists('SymmetricRewardMode') then SymmetricRewardMode:=spar.SymmetricRewardMode;
   if spar.fieldExists('DoRandomize') then DoRandomize:=spar.DoRandomize;
   if spar.fieldExists('ImmediateReward') then ImmediateReward:=spar.ImmediateReward else if spar.fieldExists('RewardCriterion') then ImmediateReward:=(spar.RewardCriterion=2);
+  if spar.fieldExists('DoCueImmediateReward') then DoCueImmediateReward:=spar.DoCueImmediateReward;
   if spar.fieldExists('TaskType') then TaskType:=spar.TaskType;
   if spar.fieldExists('LickThresholdTop') then LickThresholdTop:=spar.LickThresholdTop;
   if spar.fieldExists('LickThresholdBottom') then LickThresholdBottom:=spar.LickThresholdBottom;
@@ -856,6 +857,7 @@ begin
   mpar2.SymmetricRewardMode:=SymmetricRewardMode;
   mpar2.DoRandomize:=DoRandomize;
   mpar2.ImmediateReward:=ImmediateReward;
+  mpar2.DoCueImmediateReward:=DoCueImmediateReward;
   mpar2.LickThresholdTop:=LickThresholdTop;
   mpar2.LickThresholdBottom:=LickThresholdBottom;
   mpar2.LickNumber:=LickNumber;
@@ -953,6 +955,7 @@ begin
   if mpar2.fieldExists('SymmetricRewardMode') then SymmetricRewardMode:=mpar2.SymmetricRewardMode else SymmetricRewardMode:=2;
   if mpar2.fieldExists('DoRandomize') then DoRandomize:=mpar2.DoRandomize else DoRandomize:=TRUE;
   if mpar2.fieldExists('ImmediateReward') then ImmediateReward:=mpar2.ImmediateReward else if mpar2.fieldExists('RewardCriterion') then ImmediateReward:=(mpar2.RewardCriterion=2) else ImmediateReward:=False;
+  if mpar2.fieldExists('DoCueImmediateReward') then DoCueImmediateReward:=mpar2.ImmediateReward;
   LickThresholdTop:=mpar2.LickThresholdTop;
   LickThresholdBottom:=mpar2.LickThresholdBottom;
   LickNumber:=mpar2.LickNumber;
@@ -1547,6 +1550,7 @@ begin
     getBoolean('Symmetric Behavior',SymmetricBehavior);
     getstringList1('Symmetric Reward mode',SymmetricRewardModeList,SymmetricRewardMode);
     getBoolean('Immediate Reward',ImmediateReward);
+    getBoolean('Sound activates immediate reward',DoCueImmediateReward);
     getBoolean('Repeat condition until correct',DoRepeatCondition);
     getInteger('Minimal lick number',LickNumber,5);
     getInteger('Maximal reward',MaxReward,5);
@@ -2965,7 +2969,7 @@ begin
       begin
         create;
         installSource(v1);
-        Xstart:=CurrentStimDelay+LickCountingDelay;
+        Xstart:=CurrentStimDelay+CueRewardDelay+LickCountingDelay;
         Xend:=CurrentStimDelay+VisualStimDuration+RewardDelay;
         mode:= sm_crossDw;
         Length:= 50;
@@ -2995,7 +2999,7 @@ begin
       begin
         create;
         installSource(vfilt);
-        Xstart:=CurrentStimDelay+LickCountingDelay;
+        Xstart:=CurrentStimDelay+CueRewardDelay+LickCountingDelay;
         Xend:=CurrentStimDelay+VisualStimDuration+RewardDelay;
         mode:= sm_min;
         height:= -LickThresholdBottom;
@@ -3023,7 +3027,7 @@ begin
       begin
         create;
         installSource(vfilt);
-        Xstart:=CurrentStimDelay+LickCountingDelay;
+        Xstart:=CurrentStimDelay+CueRewardDelay+LickCountingDelay;
         Xend:=CurrentStimDelay+VisualStimDuration+RewardDelay;
         mode:= sm_max;
         height:= LickThresholdTop;
@@ -3039,7 +3043,7 @@ begin
         with det do
         begin
           installSource(vfilt2);
-          Xstart:=CurrentStimDelay+LickCountingDelay;
+          Xstart:=CurrentStimDelay+CueRewardDelay+LickCountingDelay;
           Xend:=CurrentStimDelay+VisualStimDuration+RewardDelay;
           mode:= sm_max;
           height:= LickThresholdTop;
@@ -3153,7 +3157,7 @@ end;
  
 procedure ImmediateRewardFunction(n:integer);
 begin
-  if (Vdetect[Vdetect.Iend]>CurrentStimDelay+LickCountingDelay) then
+  if (Vdetect[Vdetect.Iend]>CurrentStimDelay+CueRewardDelay+LickCountingDelay) then
   begin
     inc(LickCnt);
     if activeReward AND (LickCnt>=LickNumber) then
@@ -3169,7 +3173,7 @@ end;
 
 procedure ImmediateRewardFunction2(n:integer);
 begin
-  if (Vdetect2[Vdetect2.Iend]>CurrentStimDelay+LickCountingDelay) then
+  if (Vdetect2[Vdetect2.Iend]>CurrentStimDelay+CueRewardDelay+LickCountingDelay) then
   begin
     inc(LickCnt2);
     if activeReward AND (LickCnt2>=LickNumber) then
@@ -3481,10 +3485,19 @@ begin
     vector[1].fill(0);
     for i:=1 to NStimPerEp do
     begin
-      soundStart := CurrentStimDelay+(i-1)*TrialInterval+Round(SDelay + Random*SDelayRandom);
-      status.text[3]:='SoundStart='+Istr(soundStart);
+      SoundDelay := (i-1)*TrialInterval+Round(SDelay + Random*SDelayRandom);
+      status.text[3]:='SoundStart='+Istr(CurrentStimDelay+SoundDelay);
       vector[1].fill1(1,soundStart,soundStart+10);  // Ce pulse est envoyé sur PFI1, il déclenche le signal analogique
     end;
+    // immediate reward starting only after sound?
+    if DoCueImmediateReward then
+    begin
+      if NStimPerEp > 1 then
+        ErrorDlg('Cannot trigger immediate reward with a sound when there are multiple stims per episode!');
+      CueRewardDelay := SoundDelay;
+    end
+    else
+      CueRewardDelay := 0;
   end;
 end; 
 
@@ -3756,6 +3769,7 @@ begin
   epReport.correct := CRecord[cnt];
   epReport.condRepeat := condRepeat; // be careful, this says if NEXT trial will repeat the condition of this trial
   epReport.CurrentStimDelay := CurrentStimDelay;
+  epReport.SoundDelay := SoundDelay;
   DataFile0.appendObject(epReport);
 end;
 
@@ -3792,7 +3806,7 @@ begin
   display('set audio stim');
   if Auditory then 
   begin
-    if RandomStimDelay>0 then PrepareSoundTrigger; // If random stim delay, the sound trigger should be reset for every trial
+    if (RandomStimDelay>0) or (SDelayRandom>0) then PrepareSoundTrigger; // If random stim delay, the sound trigger should be reset for every trial
     setAudioStim(FALSE);      // Refresh and load the auditory stimulation
   end;
   display('set opto stim');
