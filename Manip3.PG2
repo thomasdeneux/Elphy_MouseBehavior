@@ -44,7 +44,7 @@ var
   Vdetect, Vdetect2: Tvector;
   level:TDBRecord; 
   RandomizationVector: TVector;
-  DelayBeforeTrial, CurrentStimDelay: integer;
+  DelayBeforeTrial, CurrentStimDelay, AUDIOSTART: integer;
   
   vect,ImpResp,vect2,fft1,fft2,fft3: TVector;
   Go:integer;
@@ -2962,7 +2962,7 @@ begin
       begin
         create;
         installSource(v1);
-        Xstart:=CurrentStimDelay+LickCountingDelay;
+        Xstart:=AUDIOSTART+LickCountingDelay;
         Xend:=CurrentStimDelay+VisualStimDuration+RewardDelay;
         mode:= sm_crossDw;
         Length:= 50;
@@ -2992,7 +2992,7 @@ begin
       begin
         create;
         installSource(vfilt);
-        Xstart:=CurrentStimDelay+LickCountingDelay;
+        Xstart:=AUDIOSTART+LickCountingDelay;
         Xend:=CurrentStimDelay+VisualStimDuration+RewardDelay;
         mode:= sm_min;
         height:= -LickThresholdBottom;
@@ -3020,7 +3020,7 @@ begin
       begin
         create;
         installSource(vfilt);
-        Xstart:=CurrentStimDelay+LickCountingDelay;
+        Xstart:=AUDIOSTART+LickCountingDelay;
         Xend:=CurrentStimDelay+VisualStimDuration+RewardDelay;
         mode:= sm_max;
         height:= LickThresholdTop;
@@ -3036,7 +3036,7 @@ begin
         with det do
         begin
           installSource(vfilt2);
-          Xstart:=CurrentStimDelay+LickCountingDelay;
+          Xstart:=AUDIOSTART+LickCountingDelay;
           Xend:=CurrentStimDelay+VisualStimDuration+RewardDelay;
           mode:= sm_max;
           height:= LickThresholdTop;
@@ -3150,7 +3150,7 @@ end;
  
 procedure ImmediateRewardFunction(n:integer);
 begin
-  if (Vdetect[Vdetect.Iend]>CurrentStimDelay+LickCountingDelay) then
+  if (Vdetect[Vdetect.Iend]>CurrentStimDelay+AUDIOSTART+LickCountingDelay) then
   begin
     inc(LickCnt);
     if activeReward AND (LickCnt>=LickNumber) then
@@ -3166,7 +3166,7 @@ end;
 
 procedure ImmediateRewardFunction2(n:integer);
 begin
-  if (Vdetect2[Vdetect2.Iend]>CurrentStimDelay+LickCountingDelay) then
+  if (Vdetect2[Vdetect2.Iend]>AUDIOSTART+LickCountingDelay) then
   begin
     inc(LickCnt2);
     if activeReward AND (LickCnt2>=LickNumber) then
@@ -3481,6 +3481,7 @@ begin
       soundStart := CurrentStimDelay+(i-1)*TrialInterval+Round(SDelay + Random*SDelayRandom);
       status.text[3]:='SoundStart='+Istr(soundStart);
       vector[1].fill1(1,soundStart,soundStart+10);  // Ce pulse est envoyé sur PFI1, il déclenche le signal analogique
+	  AUDIOSTART:=soundStart;
     end;
   end;
 end; 
@@ -3753,6 +3754,7 @@ begin
   epReport.correct := CRecord[cnt];
   epReport.condRepeat := condRepeat; // be careful, this says if NEXT trial will repeat the condition of this trial
   epReport.CurrentStimDelay := CurrentStimDelay;
+  epReport.AUDIOSTART := AUDIOSTART;
   DataFile0.appendObject(epReport);
 end;
 
