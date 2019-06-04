@@ -3486,6 +3486,7 @@ begin
     for i:=1 to NStimPerEp do
     begin
       SoundDelay := (i-1)*TrialInterval+Round(SDelay + Random*SDelayRandom);
+	  soundStart := CurrentStimDelay+SoundDelay;
       status.text[3]:='SoundStart='+Istr(CurrentStimDelay+SoundDelay);
       vector[1].fill1(1,soundStart,soundStart+10);  // Ce pulse est envoyé sur PFI1, il déclenche le signal analogique
     end;
