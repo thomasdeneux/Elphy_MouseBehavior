@@ -227,9 +227,9 @@ var
   
   // Parameter files
 const
-  DefaultMenuParameterFile = 'Y:\Behavior\Elphy\parameters\default.param';
-  LocalParameterFile = 'D:\Elphy Programs\Manip3_LocalParameters.param';
-  ListMemoFile = 'Y:\Behavior\Elphy\parameters\LISTS_MEMO.csv';
+  DefaultMenuParameterFile = 'E:\Users\Thomas\Elphy\dataroot\Elphy_MouseBehavior\default.param';
+  LocalParameterFile = 'E:\Users\Thomas\Elphy\dataroot\Elphy_MouseBehavior\Manip3_LocalParameters.param';
+  ListMemoFile = 'E:\Users\Thomas\Elphy\dataroot\Elphy_MouseBehavior\LISTS_MEMO.csv';
 
 var
   ParameterFile,ParameterDir,ParameterFileBase: string;
