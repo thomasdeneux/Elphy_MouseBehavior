@@ -181,6 +181,7 @@ var
   VAlpha, VOri, VOri2: real; // no menu
   Vx, Vy, Vx2, Vy2: real;
   VSize, VSize2, VSpeed, VLum, VOn, VInterval: real; 
+  Position: word;
   NFlash, NBeep: integer;
   VLum2: real;
   VLED: integer; 
@@ -221,7 +222,7 @@ var
   spar: TDBrecord;     // An intermediary for when reading .csv file
   ProtocolList,DetectionList,TriggerList,SymmetricRewardModeList,TaskTypeList: Tmemo;       // Various lists
   VisualProtocols,AuditoryProtocols,VisualStimuli,AuditoryStimuli: Tmemo;
-  MaskList: Tmemo;
+  MaskList, PositionList: Tmemo;
   AllListMemo: Tmemo; // summarizes the correspondence between list items and numbers
     
   // Local parameters
@@ -349,6 +350,7 @@ begin
   Vy2:=0;
   VSize:=7;
   VSize2:=7;
+  Position:=1;
   VSpeed:=0;
   VOn:=0;
   VInterval:=0;
@@ -468,6 +470,7 @@ begin
   parlist.Vy2 := db_real; 
   parlist.VSize := db_real; 
   parlist.VSize2 := db_real; 
+  parlist.Position := db_integer; 
   parlist.VSpeed := db_real; 
   parlist.VOn := db_real; 
   parlist.VInterval := db_real; 
@@ -586,6 +589,7 @@ begin
     Addline('Vy2'+';'+Rstr(Vy2,1,5));
     Addline('VSize'+';'+Rstr(VSize,1,5)); 
     Addline('VSize2'+';'+Rstr(VSize2,1,5)); 
+    Addline('Position'+';'+Istr(Position)); 
     Addline('VSpeed'+';'+Rstr(VSpeed,1,5)); 
     Addline('VOn'+';'+Rstr(VOn,1,5)); 
     Addline('VInterval'+';'+Rstr(VInterval,1,5)); 
@@ -727,6 +731,7 @@ begin
   if spar.fieldExists('Vy2') then Vy2:=spar.Vy2; 
   if spar.fieldExists('VSize') then VSize:=spar.VSize; 
   if spar.fieldExists('VSize2') then VSize2:=spar.VSize2; 
+  if spar.fieldExists('Position') then Position:=spar.Position; 
   if spar.fieldExists('VSpeed') then VSpeed:=spar.VSpeed; 
   if spar.fieldExists('VOn') then VOn:=spar.VOn; 
   if spar.fieldExists('VInterval') then VInterval:=spar.VInterval; 
@@ -889,6 +894,7 @@ begin
   // Stim parameters
   // (visual stim)
   mpar2.VSize:=VSize;
+  mpar2.Position:=Position;
   mpar2.VSpeed:=VSpeed;
   mpar2.VOn:=VOn;
   mpar2.VInterval:=VInterval;
@@ -990,6 +996,7 @@ begin
   // Stim parameters
   // (visual stim)
   VSize:=mpar2.VSize;
+  if mpar2.fieldExists('Position') then Position:=mpar2.Position else Position:=1;
   if mpar2.fieldExists('VSpeed') then VSpeed:=mpar2.VSpeed else VSpeed:=0;
   if mpar2.fieldExists('VOn') then VOn:=mpar2.VOn else VOn:=0;
   if mpar2.fieldExists('VInterval') then VInterval:=mpar2.VInterval else VInterval:=0;
@@ -1267,6 +1274,16 @@ begin
   end;  
   AllListMemo.addLine('MaskList');
   for i:=1 to MaskList.count do AllListMemo.addLine(Istr(i)+';'+MaskList.lines[i]);
+  
+  with PositionList do
+  begin
+    create;
+    addLine('full-screen');
+    addLine('left half');
+    addLine('right half');
+  end;  
+  AllListMemo.addLine('PositionList');
+  for i:=1 to PositionList.count do AllListMemo.addLine(Istr(i)+';'+PositionList.lines[i]);
   
   with AuditoryStimuli do
   begin
@@ -2145,8 +2162,10 @@ begin
     // update the gratings
     with gratings[i] do
     begin
-      dx:=stimScreen.width;
-      dy:=stimScreen.height;
+      x:=xCenter;
+      y:=yCenter;
+      dx:=xWidth;
+      dy:=yHeight;
       Lum:=VLum;
       period:=VSize;
       phase := 0;
@@ -2313,6 +2332,14 @@ end;
 procedure setVisualStim;
 begin
   emptyVisualStim;
+  // Modify position values
+  if (Position <> 1) AND (MaskType <> 1) then
+    ErrorDlg('It is not possible to change at the same time Position and MaskType from default values');
+  xCenter:=0; yCenter:=0; xWidth:=stimScreen.width; yHeight:=stimScreen.height; // default values, for full screen
+  case Position of
+    2: begin xCenter:=-stimScreen.width/4; xWidth:=stimScreen.width/2; end;
+    3: begin xCenter:=stimScreen.width/4; xWidth:=stimScreen.width/2; end;
+  end;    
   // Create protocol-specific visual object and assign it to the stim
   case VStimType of
     1: MakeContour('star');  // Design the star|square shape
