@@ -2649,8 +2649,13 @@ begin
   for k:=1 to nS do
   begin
     time := k / Sound_Sampling_Frequency;
-    BipSound[k] := SLevel*Sin(2*PI*BipFreq*time);
+		if BipFreq>0 then
+			BipSound[k] := SLevel*Sin(2*PI*BipFreq*time)
+		else
+			BipSound[k] := (SLevel/sqrt(2))*RandomN;		   
   end;
+
+
 
   // compute sounds (or copy loaded sounds) and memorize max sound duration
   MaxSoundDuration:=0;
