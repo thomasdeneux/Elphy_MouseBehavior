@@ -3571,6 +3571,17 @@ end;
 ////////////////////////// Acquisition /////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+// Make sure that trigger signal will have initial value 0
+procedure ResetDigitalOutput;
+var
+  Address: string;
+  value, ok: integer;
+begin
+  Address:=Dev+'/PORT0';
+  ok := NInoclock.Dout(Address,0);
+  //status.text[4] := 'ok = ' + Istr(ok);
+end;
+
 // Prepare sound trigger (needs to be called at the beginning of every episode 
 // if there is a randomized Stim Delay)
 procedure PrepareSoundTrigger;
@@ -3765,6 +3776,9 @@ begin
 
   // Set a gray screen
   StimScreen.BackGroundLum:=BackgroundLuminance;
+  
+  // Make sure that trigger signal will have initial value 0
+  ResetDigitalOutput;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -4073,4 +4087,9 @@ RewardFunction;
 //sendDigital;
 }
 
+{
+program 'test'
+i := NInoclock.Din(Dev+'/PORT0',j);
+status.text[4] := 'Din = ' + Istr(j) + ', ok = ' + Istr(i);
+}
 
